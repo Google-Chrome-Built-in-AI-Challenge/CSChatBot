@@ -1,13 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react';
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
+import config from './features/chatbot/config';
+import { Button } from './components/ui/button/button';
+import Chatbot from 'react-chatbot-kit';
+import 'react-chatbot-kit/build/main.css';
+import { ActionProvider, MessageParser } from './features/chatbot';
+import './features/chatbot/chatbot.css';
+import { BrowserRouter, Route, Routes } from 'react-router';
+
 
 function App() {
   const [count, setCount] = useState(0)
+  const [showChatbot, setShowChatbot] = useState(false);
+
+  useEffect(() => {
+    const handleCloseChatbot = () => {
+      setShowChatbot(false);
+    };
+    window.addEventListener('closeChatbot', handleCloseChatbot);
+
+    return () => {
+      window.removeEventListener('closeChatbot', handleCloseChatbot);
+    };
+  }, []);
 
   return (
-    <>
+    <BrowserRouter>
       <div>
         <a href="https://vite.dev" target="_blank">
           <img src={viteLogo} className="logo" alt="Vite logo" />
@@ -18,17 +38,23 @@ function App() {
       </div>
       <h1>Vite + React</h1>
       <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+        {!showChatbot && (
+          <Button
+            onClick={() => setShowChatbot(true)}
+            className="w-12 h-12 rounded-full bg-white border fixed bottom-20 right-2 hover:bg-wiz-red hover:text-wiz-white"
+          >
+            챗봇
+          </Button>
+        )}
+        {showChatbot && (
+          <Chatbot
+            config={config}
+            messageParser={MessageParser}
+            actionProvider={ActionProvider}
+          />
+        )}
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </BrowserRouter>
   )
 }
 

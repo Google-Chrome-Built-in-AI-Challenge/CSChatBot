@@ -10,8 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "class-variance-authority": "^0.7.1",
+    "lucide-react": "^0.548.0",
+    "radix-ui": "^1.4.3",
+    "react": "^19.2.0",
+    "react-chatbot-kit": "^2.2.2",
+    "react-dom": "^19.1.1",
+    "react-router": "^7.9.4",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
