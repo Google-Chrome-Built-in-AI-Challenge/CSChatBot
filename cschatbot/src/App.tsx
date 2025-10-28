@@ -28,22 +28,18 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
+      <h1>챗봇 관리자 설정 대시보드</h1>
+      <a>에이전트 프로필 설정하기</a>
+      <a>용어사전 설정하기</a>
+      <a>FAQ 설정하기</a>
+      <a>도큐먼트/아티클 설정하기</a>
       <div className="card">
         {!showChatbot && (
           <Button
             onClick={() => setShowChatbot(true)}
             className="w-12 h-12 rounded-full bg-white border fixed bottom-20 right-2 hover:bg-wiz-red hover:text-wiz-white"
           >
-            챗봇
+            챗봇 구동시키기
           </Button>
         )}
         {showChatbot && (
