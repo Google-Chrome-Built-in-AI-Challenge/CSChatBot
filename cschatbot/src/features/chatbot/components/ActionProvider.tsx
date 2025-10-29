@@ -9,23 +9,14 @@ interface ActionProviderProps {
   setState: React.Dispatch<React.SetStateAction<any>>;
   children: React.ReactNode;
 }
-
 interface BotMessage { message: string; [key: string]: unknown; }
 interface State { messages: BotMessage[]; [key: string]: unknown; }
-
 type AIBundle = Awaited<ReturnType<typeof bootstrapLocalAI>>;
 
-// 성능 실험용: 필요시 true로 바꿔 Writer 생략
-const USE_WRITER = false;
+const MAX_OUT = 280;         // 최종 메시지 길이 제한
+const MAX_SENTENCES = 2;     // 한국어 2문장
 
-// ★ 마지막 안전가드: 너무 길면 컷
-function enforceBrevityKo(s: string, maxChars = 280) {
-  const t = s.replace(/\n{2,}/g, '\n').trim();
-  if (t.length <= maxChars) return t;
-  return t.slice(0, maxChars - 1).replace(/\s+\S*$/, '') + '…';
-}
-
-const ActionProvider: React.FC<ActionProviderProps> = ({
+export const ActionProvider: React.FC<ActionProviderProps> = ({
   createChatBotMessage, setState, children,
 }) => {
   const nav = useNavigate();
@@ -34,6 +25,20 @@ const ActionProvider: React.FC<ActionProviderProps> = ({
   const appendBot = (text: string, options?: Record<string, unknown>) => {
     const botMessage = createChatBotMessage(text, options);
     setState((prev: State) => ({ ...prev, messages: [...prev.messages, botMessage] }));
+  };
+
+  // 마지막 봇 메시지 교체(스트리밍 표시용)
+  const replaceLastBot = (text: string) => {
+    setState((prev: State) => {
+      const msgs = [...prev.messages];
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if ((msgs[i] as any).type === 'bot' || (msgs[i] as any).message !== undefined) {
+          msgs[i] = { ...(msgs[i] as any), message: text };
+          break;
+        }
+      }
+      return { ...prev, messages: msgs };
+    });
   };
 
   const ensureAI = async (): Promise<AIBundle> => {
@@ -52,73 +57,84 @@ const ActionProvider: React.FC<ActionProviderProps> = ({
   const handleClickTicketLink = () => window.open('https://www.ticketlink.co.kr/sports/137/62', '_blank');
   const handleUnknownMessage = () => appendBot('죄송해요. 무슨 말씀이신지 잘 모르겠어요.🥺');
 
-  // ===== 메인: 로컬 AI 파이프라인 (최종 출력은 항상 한국어) =====
+  // ===== 메인 파이프라인 =====
   const handleUserText = async (raw: string) => {
-    try {
-      const ai = await ensureAI();
-      console.log('[ActionProvider] handleUserText raw:', raw);
+  try {
+    const ai = await ensureAI();
+    const agentLang = ai.agentLang ?? 'en';
 
-      // 0) 언어 감지
-      let srcLang = ai.persona.agentLang ?? 'en';
-      if (raw.trim().length >= 2 && ai.detector?.detect) {
-        const list = await ai.detector.detect(raw);
-        const top = Array.isArray(list) ? list[0] : null;
-        if (top?.detectedLanguage) srcLang = top.detectedLanguage;
-        console.log('[ActionProvider] detected lang:', srcLang, top);
-      }
-
-      // 1) 입력을 agent 언어(영)로 정규화
-      const toAgent = srcLang !== ai.persona.agentLang
-        ? await ai.translatorFactory?.(srcLang)
-        : null;
-      const normalized = toAgent ? await toAgent.translate(raw) : raw;
-      console.log('[ActionProvider] normalized(en):', normalized);
-
-      // 2) FAQ 얕은 매칭
-      const faqHit =
-        ai.faq?.find((f: any) =>
-          String(normalized).toLowerCase().includes(String(f.q).toLowerCase())
-        ) ?? null;
-      console.log('[ActionProvider] faqHit:', !!faqHit);
-
-      // 3) 초안 생성: 답변은 짧고 핵심만 (영어로 생성)
-      const draft = faqHit
-        ? faqHit.a
-        : await ai.prompt.prompt(
-            [
-              'You are a customer support agent. Keep it concise.',
-              'Rules:',
-              '- Maximum 2 short sentences or 3 bullet points.',
-              '- No preambles, no headings, no markdown unless bullets.',
-              '- Focus on the exact user ask.',
-              '',
-              `User: ${normalized}`,
-              'Agent:',
-            ].join('\n')
-          );
-      console.log('[ActionProvider] draftPreview:', String(draft).slice(0, 140));
-
-      // 4) Writer로 톤/금지어 보정(선택)
-      const maybePolished = USE_WRITER
-        ? await ai.writer.write(String(draft), {
-            context: `Tone=${ai.persona.tone}; Avoid=${ai.persona.forbiddenPhrases?.join(', ')};
-                      Style=very concise, max 2 sentences or 3 bullets.`,
-          })
-        : String(draft);
-
-      // 5) 최종 출력은 항상 한국어
-      const toKo = await ai.getTranslator(ai.persona.agentLang ?? 'en', ai.displayLang ?? 'ko');
-      const korean = toKo ? await toKo.translate(maybePolished) : maybePolished;
-
-      // 6) 마지막 안전가드로 더 줄이기
-      const finalText = enforceBrevityKo(korean, 280);
-
-      appendBot(finalText);
-    } catch (e) {
-      console.error('[ActionProvider] handleUserText error:', e);
-      appendBot('로컬 AI 사용이 불가합니다. 데스크톱 Chrome 138+와 저장공간(≥22GB)을 확인한 뒤 다시 시도해주세요.');
+    // 0) 언어 감지
+    let srcLang = agentLang;
+    if (raw.trim().length >= 2 && ai.detector?.detect) {
+      const list = await ai.detector.detect(raw);
+      const top = Array.isArray(list) ? list[0] : null;
+      if (top?.detectedLanguage) srcLang = top.detectedLanguage;
+      console.log('[ActionProvider] detected lang:', srcLang);
     }
-  };
+
+    // 1) 입력을 에이전트 언어(=영어)로 변환
+    const tooShort = raw.trim().length < 6;
+    const toAgent =
+      (!tooShort && srcLang !== agentLang)
+        ? await ai.getTranslator(srcLang, agentLang)
+        : null;
+    const normalized = toAgent ? await toAgent.translate(raw) : raw;
+
+    // 2) 프롬프트 구성
+    const sysRule = `Respond in English. No markdown. 
+    Use at most 4 sentences (<=350 chars total).`;
+    const promptInput = `${sysRule}\nUser: ${normalized}\nAgent:`;
+
+    // 3) 초안 생성 (스트리밍 그대로)
+    appendBot('…');
+    let draft = '';
+    const stream = ai.prompt.promptStream(promptInput);
+    for await (const chunk of stream) {
+      draft += chunk;
+      if (draft.length % 40 < chunk.length) {
+        replaceLastBot('생성 중…');
+        await new Promise(r => setTimeout(r));
+      }
+    }
+
+    // 4) ★입력 언어로 번역★
+    //    영어 입력 → 그대로
+    //    한국어 입력 → en→ko 번역
+    //    프랑스어 입력 → en→fr 번역
+    let finalLocalized = draft;
+    if (srcLang !== agentLang) {
+      const back = await ai.getTranslator(agentLang, srcLang);
+      if (back?.translateStream) {
+        let t = '';
+        for await (const c of back.translateStream(draft)) {
+          t += c;
+          replaceLastBot(t.slice(0, 360));
+        }
+        finalLocalized = t;
+      } else if (back) {
+        finalLocalized = await back.translate(draft);
+      }
+    }
+
+    // 5) 문장수/길이 제한
+    const cut = (s: string) =>
+      s.length > 360 ? s.slice(0, 359) + '…' : s;
+    const sentenceClamp = (s: string) =>
+      s.split(/(?<=[.!?。？！])\s+/)
+        .filter(Boolean)
+        .slice(0, 4)
+        .join(' ')
+        .trim();
+
+    const finalText = cut(sentenceClamp(finalLocalized));
+    replaceLastBot(finalText || '응답을 생성하지 못했습니다.');
+  } catch (e) {
+    console.error('[ActionProvider] handleUserText error:', e);
+    appendBot(
+      '로컬 AI 사용이 불가합니다. 데스크톱 Chrome 138+와 저장공간(≥22GB)을 확인한 뒤 다시 시도해주세요.'
+    );
+  }
+};
 
   return (
     <div>
@@ -130,7 +146,7 @@ const ActionProvider: React.FC<ActionProviderProps> = ({
               handleUnknownMessage,
               handleClickHomepage,
               handleClickTicketLink,
-              handleUserText,
+              handleUserText
             },
           });
         }
@@ -139,5 +155,3 @@ const ActionProvider: React.FC<ActionProviderProps> = ({
     </div>
   );
 };
-
-export { ActionProvider };
