@@ -9,7 +9,6 @@ import 'react-chatbot-kit/build/main.css';
 import { ActionProvider, MessageParser } from './features/chatbot';
 import './features/chatbot/chatbot.css';
 import { BrowserRouter } from 'react-router';
-import './features/chatbot'
 
 function App() {
   const [showChatbot, setShowChatbot] = useState(false);
