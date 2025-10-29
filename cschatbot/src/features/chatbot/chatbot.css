@@ -57,12 +57,12 @@
 
 .react-chatbot-kit-chat-bot-message {
   margin-left: 10px;
-  background-color: black;
+  background-color: rgb(53, 59, 65);
   border: none;
 }
 
 .react-chatbot-kit-chat-bot-message-arrow {
-  border-right: black 8px solid;
+  border-right: rgb(53, 59, 65) 8px solid;
 }
 
 .react-chatbot-kit-user-chat-message-container {

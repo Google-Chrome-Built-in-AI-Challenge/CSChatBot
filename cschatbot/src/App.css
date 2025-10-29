@@ -62,6 +62,7 @@
   margin: 0 auto;
   padding: 2rem;
   font-family: 'Noto Sans KR', sans-serif;
+  text-align: left; /* <- 추가: 기본 텍스트 왼쪽 정렬 */
 }
 
 .dashboard-title {
@@ -151,6 +152,96 @@
 }
 
 .chatbot-toggle-btn:hover {
-  background-color: #536987;
+  background-color: #7c8389;
   box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+/* 제목 초기 상태 */
+.main-title {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%); /* 완전 중앙 정렬 */
+  font-size: 3rem;
+  font-weight: 800;
+  color: #222;
+  transition: all 1.5s ease-in-out;
+  opacity: 1;
+}
+
+/* 위쪽으로 이동한 후 상태 */
+.main-title.move {
+  top: 1rem;          /* 위쪽으로 이동 */
+  left: 2rem;         /* 살짝 왼쪽 정렬 */
+  transform: translate(0, 0); /* 중앙 offset 제거 */
+  font-size: 1.8rem;
+}
+
+.dashboard-area {
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+
+  position: absolute;   /* 화면 기준으로 위치 지정 */
+  top: 6rem;            /* 제목 이동 후 위치 맞춤 */
+  left: 2rem;           /* 화면 왼쪽에 딱 붙음 */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* 왼쪽 정렬 */
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* 왼쪽 정렬 */
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding-left: 0.5rem; /* 세로선과 항목 사이 간격 */
+  border-left: 2px solid #434343; /* 전체 세로 구분선 */
+  height: fit-content; /* 내용에 맞게 높이 */
+}
+
+/* 애니메이션 완료 후 등장 */
+.dashboard-area.show {
+  opacity: 1;
+}
+
+.setting-btn {
+  background-color: #f5f5f5;
+  color: #333;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.setting-btn:hover {
+  background-color: #6a6a6a;
+  color: #fff;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  max-width: 280px; /* 폭 일정하게 */
+  background-color: #f5f5f5;
+  transition: background 0.2s;
+}
+
+.setting-item:hover {
+  background-color: #e0e0e0;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #ff4d4f;
+  flex-shrink: 0;
 }
