@@ -8,7 +8,7 @@
   max-height: 680px;
   overflow: hidden;
   border-radius: 25px;
-  box-shadow: rgb(0 0 0 / 30%) 0px 12px 60px 5px;
+  box-shadow: rgba(119, 119, 191, 0.3) 0px 12px 60px 5px;
 }
 
 .react-chatbot-kit-chat-inner-container {

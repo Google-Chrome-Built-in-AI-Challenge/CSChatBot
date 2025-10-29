@@ -9,6 +9,8 @@ import 'react-chatbot-kit/build/main.css';
 import { ActionProvider, MessageParser } from './features/chatbot';
 import './features/chatbot/chatbot.css';
 import { BrowserRouter, Route, Routes } from 'react-router';
+import "./styles/chatbot.css";
+import SettingsDropdown from './features/chatbot/components/SettingDropdown';
 
 
 function App() {
@@ -28,20 +30,19 @@ function App() {
 
   return (
     <BrowserRouter>
-      <h1>챗봇 관리자 설정 대시보드</h1>
-      <a>에이전트 프로필 설정하기</a>
-      <a>용어사전 설정하기</a>
-      <a>FAQ 설정하기</a>
-      <a>도큐먼트/아티클 설정하기</a>
-      <div className="card">
+      <h1>cschatbot</h1>
+      <header style={{ display: "flex", justifyContent: "flex-end", padding: "1rem" }}>
+        <SettingsDropdown />
+      </header>
+      {/* <div className="card"> */}
         {!showChatbot && (
-          <Button
-            onClick={() => setShowChatbot(true)}
-            className="w-12 h-12 rounded-full bg-white border fixed bottom-20 right-2 hover:bg-wiz-red hover:text-wiz-white"
-          >
-            챗봇 구동시키기
-          </Button>
-        )}
+  <Button
+    onClick={() => setShowChatbot(true)}
+    className="chatbot-toggle-btn"
+  >
+    FAQ
+  </Button>
+)}
         {showChatbot && (
           <Chatbot
             config={config}
@@ -49,7 +50,7 @@ function App() {
             actionProvider={ActionProvider}
           />
         )}
-      </div>
+      {/* </div> */}
     </BrowserRouter>
   )
 }
