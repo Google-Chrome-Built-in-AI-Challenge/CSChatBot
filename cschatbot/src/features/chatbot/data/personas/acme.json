@@ -1,0 +1,10 @@
+{
+  "companyId": "acme",
+  "agentLang": "en",
+  "userLangFallbacks": ["ko","ja","es"],
+  "tone": "friendly-formal",
+  "forbiddenPhrases": ["not our problem","can't help"],
+  "initialPrompts": [
+    {"role":"system","content":"You are ACME support. Be concise, accurate, kind. If unsure, ask for details."}
+  ]
+}
