@@ -64,13 +64,22 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
     const agentLang = ai.agentLang ?? 'en';
 
     // 0) 언어 감지
-    let srcLang = agentLang;
-    if (raw.trim().length >= 2 && ai.detector?.detect) {
-      const list = await ai.detector.detect(raw);
-      const top = Array.isArray(list) ? list[0] : null;
-      if (top?.detectedLanguage) srcLang = top.detectedLanguage;
-      console.log('[ActionProvider] detected lang:', srcLang);
+    let srcLang = ai.agentLang; // fallback: en
+    if (raw.trim().length >= 2 && ai.detector) {
+      try {
+        const top = await (ai.detector.detectTop
+          ? ai.detector.detectTop(raw)
+          : (async () => {
+              const out = await ai.detector.detect(raw);
+              return Array.isArray(out) ? out[0] : out;
+            })());
+        if (top?.detectedLanguage) srcLang = top.detectedLanguage;
+        console.log('[ActionProvider] final srcLang =', srcLang);
+      } catch (e) {
+        console.error('[ActionProvider] detection failed:', e);
+      }
     }
+
 
     // 1) 입력을 에이전트 언어(=영어)로 변환
     const tooShort = raw.trim().length < 6;
