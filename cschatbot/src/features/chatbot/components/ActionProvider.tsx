@@ -98,6 +98,59 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
         srcLang = agentLang;
       }
 
+      // handleUserText 내부 — 언어감지 직후에 추가 (번역 전에)
+const allFaqs = JSON.parse(localStorage.getItem('faqList') || '[]');
+try {
+  // 프리필터: 원문(raw) 기준 + 필요 시 영어 토큰 병행
+  const pre = await prefilterFAQ(
+    raw,
+    allFaqs,
+    async (s) => {
+      const t = await ai.getTranslator(srcLang, 'en');
+      return t ? await t.translate(s) : s;
+    }
+  );
+
+  if (pre.length) {
+    const shortlistIdx = pre.map(h => h.index);
+    const match = await matchFAQFromShortlist(ai.prompt, raw /* 원문 그대로 */, shortlistIdx);
+    if (match && match.score >= 0.75) {
+      const item = getFAQByIndex(match.index);
+      if (item) {
+        let localized = item.answer;
+
+        // 이미 한국어 답이면 역번역 불필요
+        const answerIsKo = /[가-힣]/.test(localized);
+        if (!answerIsKo && srcLang !== 'en') {
+          const back = await ai.getTranslator('en', srcLang);
+          if (back) localized = await back.translate(localized);
+        }
+
+        // 페르소나 보정
+        if (srcLang.startsWith('ko') && ai.persona?.replyStyle?.useHonorific) {
+          const honor = ai.persona?.honorifics?.ko || '고객님';
+          if (!new RegExp(`${honor}|고객님|♥`).test(localized.slice(0, 20))) {
+            localized = `${honor}, ${localized}`;
+          }
+        }
+        const endParticleKo = ai.persona?.replyStyle?.endingParticle;
+        if (endParticleKo && srcLang.startsWith('ko')) {
+          localized = localized.replace(/[.!?。？！]+$/, '');
+          if (!localized.endsWith(endParticleKo)) localized += endParticleKo;
+        }
+
+        // 길이 제한
+        const cut = (s: string) => s.length > 360 ? s.slice(0, 359) + '…' : s;
+        const clamp = (s: string) => s.split(/(?<=[.!?。？！])\s+/).filter(Boolean).slice(0, 4).join(' ').trim();
+        appendBot(cut(clamp(localized)));
+        return; // 여기서 끝. 생성/스트리밍 아예 안 탐.
+      }
+    }
+  }
+} catch (e) {
+  console.warn('[FAQ-first] skipped, fallback to normal gen', e);
+}
+
       // 1) 입력을 agentLang(기본 en)로 정규화
       const tooShort = raw.trim().length < 6;
       const toAgent =
@@ -182,14 +235,28 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
       const promptInput = `${sysRule}\nUser: ${normalized}\nAgent:`;
 
       appendBot('…');
-      let draft = '';
-      for await (const chunk of ai.prompt.promptStream(promptInput)) {
-        draft += chunk;
-        if (draft.length % 40 < chunk.length) {
-          replaceLastBot('생성 중…');
-          await new Promise((r) => setTimeout(r));
-        }
-      }
+let draft = '';
+let streamed = false;
+
+try {
+  for await (const chunk of ai.prompt.promptStream(promptInput)) {
+    streamed = true;
+    draft += chunk;
+    // 너무 잦은 업데이트 대신 디바운스
+    if (draft.length >= 40 && draft.length % 20 === 0) {
+      replaceLastBot('생성 중…');
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+} catch (e) {
+  console.warn('[stream]', e);
+  // 아래 finally에서 처리
+} finally {
+  if (!streamed || !draft.trim()) {
+    replaceLastBot('응답을 생성하지 못했습니다.');
+  }
+}
+
 
       // 역번역
       let localized = draft;
