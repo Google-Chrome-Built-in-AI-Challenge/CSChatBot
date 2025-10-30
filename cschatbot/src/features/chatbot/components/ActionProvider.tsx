@@ -1,6 +1,7 @@
 import React, { ReactElement, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { bootstrapLocalAI } from '../ai/bootstrap';
+import { stripForLangDetect, hintByScript } from '../ai/textSanitize';
 
 type CreateMsgFn = (message: string, options?: Record<string, unknown>) => any;
 
@@ -13,8 +14,8 @@ interface BotMessage { message: string; [key: string]: unknown; }
 interface State { messages: BotMessage[]; [key: string]: unknown; }
 type AIBundle = Awaited<ReturnType<typeof bootstrapLocalAI>>;
 
-const MAX_OUT = 280;         // 최종 메시지 길이 제한
-const MAX_SENTENCES = 2;     // 한국어 2문장
+const MAX_OUT = 280;
+const MAX_SENTENCES = 2;
 
 export const ActionProvider: React.FC<ActionProviderProps> = ({
   createChatBotMessage, setState, children,
@@ -41,15 +42,18 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
     });
   };
 
+  // src/features/chatbot/components/ActionProvider.tsx
   const ensureAI = async (): Promise<AIBundle> => {
     if (aiRef.current) return aiRef.current;
     console.log('[ActionProvider] bootstrapLocalAI starting...');
-    aiRef.current = await bootstrapLocalAI((kind, r) => {
-      console.log(`[ActionProvider] download ${kind}: ${Math.round(r * 100)}%`);
-    });
+    aiRef.current = await bootstrapLocalAI(
+      (kind, r) => console.log(`[ActionProvider] download ${kind}: ${Math.round(r * 100)}%`),
+      { companyId: 'mari' } // ★ 여기
+    );
     console.log('[ActionProvider] bootstrapLocalAI ready');
     return aiRef.current!;
   };
+
 
   // 샘플 액션
   const handleTicketPurchase = () => appendBot('티켓 구매 옵션을 선택해주세요', { widget: 'ticketPurchaseOptions' });
@@ -58,92 +62,99 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
   const handleUnknownMessage = () => appendBot('죄송해요. 무슨 말씀이신지 잘 모르겠어요.🥺');
 
   // ===== 메인 파이프라인 =====
-  const handleUserText = async (raw: string) => {
+const handleUserText = async (raw: string) => {
   try {
     const ai = await ensureAI();
-    const agentLang = ai.agentLang ?? 'en';
+    const agentLang = ai.agentLang ?? "en";
 
     // 0) 언어 감지
-    let srcLang = ai.agentLang; // fallback: en
-    if (raw.trim().length >= 2 && ai.detector) {
-      try {
-        const top = await (ai.detector.detectTop
-          ? ai.detector.detectTop(raw)
-          : (async () => {
-              const out = await ai.detector.detect(raw);
-              return Array.isArray(out) ? out[0] : out;
-            })());
-        if (top?.detectedLanguage) srcLang = top.detectedLanguage;
-        console.log('[ActionProvider] final srcLang =', srcLang);
-      } catch (e) {
-        console.error('[ActionProvider] detection failed:', e);
+    let srcLang = agentLang;
+    try {
+      const clean = stripForLangDetect(raw);
+      let top: any = null;
+
+      if (clean.length >= 2 && ai.detector?.detect) {
+        const list = await ai.detector.detect(clean);
+        top = Array.isArray(list) ? list[0] : list;
       }
+
+      if (top?.detectedLanguage && (top.confidence ?? 0) >= 0.6) {
+        srcLang = top.detectedLanguage;
+      } else {
+        srcLang = hintByScript(raw) ?? agentLang;
+      }
+
+      if (raw.trim().length < 2) srcLang = "ko";
+      console.log("[detect]", { srcLang, top });
+    } catch (e) {
+      console.warn("[detect] failed, fallback to agentLang", e);
+      srcLang = agentLang;
     }
 
-
-    // 1) 입력을 에이전트 언어(=영어)로 변환
+    // 1) 입력을 영어(agentLang)로 변환
     const tooShort = raw.trim().length < 6;
     const toAgent =
-      (!tooShort && srcLang !== agentLang)
+      !tooShort && srcLang !== agentLang
         ? await ai.getTranslator(srcLang, agentLang)
         : null;
     const normalized = toAgent ? await toAgent.translate(raw) : raw;
 
-    // 2) 프롬프트 구성
-    const sysRule = `Respond in English. No markdown. 
-    Use at most 4 sentences (<=350 chars total).`;
+    // 2) 프롬프트 구성 — 영어로 생성하도록 시스템 규칙 명시
+    const sysRule = `Respond in English. No markdown. Max 4 sentences, <=350 chars.`;
     const promptInput = `${sysRule}\nUser: ${normalized}\nAgent:`;
 
-    // 3) 초안 생성 (스트리밍 그대로)
-    appendBot('…');
-    let draft = '';
-    const stream = ai.prompt.promptStream(promptInput);
-    for await (const chunk of stream) {
+    // 3) 응답 생성 (스트리밍)
+    appendBot("…");
+    let draft = "";
+    for await (const chunk of ai.prompt.promptStream(promptInput)) {
       draft += chunk;
       if (draft.length % 40 < chunk.length) {
-        replaceLastBot('생성 중…');
-        await new Promise(r => setTimeout(r));
+        replaceLastBot("생성 중…");
+        await new Promise((r) => setTimeout(r));
       }
     }
 
-    // 4) ★입력 언어로 번역★
-    //    영어 입력 → 그대로
-    //    한국어 입력 → en→ko 번역
-    //    프랑스어 입력 → en→fr 번역
-    let finalLocalized = draft;
+    // 4) 입력 언어로 역번역
+    let localized = draft;
     if (srcLang !== agentLang) {
       const back = await ai.getTranslator(agentLang, srcLang);
-      if (back?.translateStream) {
-        let t = '';
-        for await (const c of back.translateStream(draft)) {
-          t += c;
-          replaceLastBot(t.slice(0, 360));
-        }
-        finalLocalized = t;
-      } else if (back) {
-        finalLocalized = await back.translate(draft);
+      localized = back ? await back.translate(draft) : draft;
+    }
+
+    // 5) 호칭 보정(조건부)
+    if (srcLang.startsWith('ko') && ai.persona?.replyStyle?.useHonorific) {
+      const honor = ai.persona?.honorifics?.ko || '고객님';
+      const head = localized.slice(0, 20);
+      if (!new RegExp(`${honor}|고객님|♥`).test(head)) {
+        localized = `${honor}, ${localized}`;
       }
     }
 
-    // 5) 문장수/길이 제한
-    const cut = (s: string) =>
-      s.length > 360 ? s.slice(0, 359) + '…' : s;
+    // 6) 문장/글자 제한 (이미 있던 로직 유지)
     const sentenceClamp = (s: string) =>
-      s.split(/(?<=[.!?。？！])\s+/)
-        .filter(Boolean)
-        .slice(0, 4)
-        .join(' ')
-        .trim();
+      s.split(/(?<=[.!?。？！])\s+/).filter(Boolean).slice(0, 4).join(' ').trim();
+    const cut = (s: string) => s.length > 360 ? s.slice(0, 359) + '…' : s;
 
-    const finalText = cut(sentenceClamp(finalLocalized));
-    replaceLastBot(finalText || '응답을 생성하지 못했습니다.');
+    localized = cut(sentenceClamp(localized));
+
+    // 7) 말투 후처리(끝말, 조건부)
+    const endParticle = ai.persona?.replyStyle?.endingParticle;
+    if (endParticle && srcLang.startsWith('ko')) {
+      localized = localized.replace(/[.!?。？！]+$/, '');
+      if (!localized.endsWith(endParticle)) localized += endParticle;
+    }
+
+    replaceLastBot(localized || '응답을 생성하지 못했습니다.');
+
   } catch (e) {
-    console.error('[ActionProvider] handleUserText error:', e);
+    console.error("[ActionProvider] handleUserText error:", e);
     appendBot(
-      '로컬 AI 사용이 불가합니다. 데스크톱 Chrome 138+와 저장공간(≥22GB)을 확인한 뒤 다시 시도해주세요.'
+      "로컬 AI 사용이 불가합니다. 데스크톱 Chrome 138+와 저장공간(≥22GB)을 확인한 뒤 다시 시도해주세요."
     );
   }
 };
+
+
 
   return (
     <div>

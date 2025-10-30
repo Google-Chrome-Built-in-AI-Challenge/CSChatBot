@@ -23,20 +23,34 @@ type LMOpts = {
 };
 
 export async function createPromptSession(opts?: LMOpts) {
-  // 낮은 온도/탑K로 속도+일관성 확보
   const params = await (async () => {
     // @ts-ignore
-    const p = await LanguageModel.params?.().catch(()=>null);
+    const p = await LanguageModel.params?.().catch(() => null);
     return p ?? { defaultTemperature: 1, defaultTopK: 3 };
   })();
 
   const temperature = Math.min(1, (opts?.temperature ?? params.defaultTemperature * 0.7));
-  const topK = Math.max(1, (opts?.topK ?? 1)); // 가능한 낮게
+  const topK = Math.max(1, (opts?.topK ?? 1));
 
+  // // system prompt가 항상 첫 번째에 오도록 정리
+  // const systemPrompt = {
+  //   role: 'system',
+  //   content: [
+  //     'You are a helpful assistant.',
+  //     'No markdown.',
+  //     opts?.meta?.noMarkdown ? 'Do not use markdown.' : '',
+  //     opts?.meta?.maxSentences ? `Use at most ${opts.meta.maxSentences} sentences.` : '',
+  //     opts?.meta?.maxChars ? `Keep it under ${opts.meta.maxChars} characters.` : '',
+  //   ].filter(Boolean).join(' ')
+  // };
+
+  // const initPrompts = [systemPrompt, ...(opts?.initialPrompts ?? [])];
+  const initPrompts = opts?.initialPrompts ?? [];
+  
   console.time('[Prompt.create] time');
   // @ts-ignore
   const session = await LanguageModel.create({
-    initialPrompts: opts?.initialPrompts,
+    initialPrompts: initPrompts, // ★ system이 항상 맨 앞
     expectedInputs: opts?.expectedInputs,
     expectedOutputs: opts?.expectedOutputs,
     temperature,
@@ -62,3 +76,4 @@ export async function createPromptSession(opts?: LMOpts) {
     destroy: () => session.destroy()
   };
 }
+
