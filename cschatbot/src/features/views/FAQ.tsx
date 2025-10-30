@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { enrichFAQItem, FAQItem } from "@/features/chatbot/ai/faqEnricher";
 
 interface FAQItem {
   question: string;
@@ -18,24 +19,19 @@ const FAQ = () => {
     }
   }, []);
 
-  const handleSave = () => {
-    if (!question.trim() || !answer.trim()) {
-      alert("질문과 답변을 모두 입력해주세요.");
-      return;
-    }
+  const handleSave = async () => {
+  if (!question.trim() || !answer.trim()) {
+    alert("질문과 답변을 모두 입력해주세요.");
+    return;
+  }
+  const enriched = await enrichFAQItem(question, answer);
 
-    const newFAQ: FAQItem = {
-      question,
-      answer,
-      date: new Date().toLocaleString(),
-    };
+  const updated = [enriched, ...faqList];
+  setFaqList(updated);
+  localStorage.setItem("faqList", JSON.stringify(updated));
 
-    const updated = [newFAQ, ...faqList];
-    setFaqList(updated);
-    localStorage.setItem("faqList", JSON.stringify(updated));
-
-    setQuestion("");
-    setAnswer("");
+  setQuestion("");
+  setAnswer("");
   };
 
   return (
