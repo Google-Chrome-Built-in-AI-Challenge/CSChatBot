@@ -68,7 +68,7 @@ const Docs = () => {
       </div>
 
       <div className="mt-8 w-full max-w-lg">
-        <h3 className="text-lg font-semibold mb-2">📚 저장된 도큐먼트</h3>
+        <h3 className="text-lg font-semibold mb-2">저장된 도큐먼트</h3>
         {docs.length === 0 ? (
           <p className="text-gray-500">아직 작성된 도큐먼트가 없습니다.</p>
         ) : (
