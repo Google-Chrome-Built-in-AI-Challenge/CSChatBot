@@ -1,5 +1,7 @@
 // src/features/views/Docs.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { bootstrapLocalAI } from '@/features/chatbot/ai/bootstrap';
+import { compileIndex } from '@/features/chatbot/ai/docIndex';
 
 // LocalStorage keys
 const STORAGE_KEY = "docArticles:v1";
@@ -262,17 +264,51 @@ const Docs: React.FC = () => {
     if (activeId === id) setActiveId(next[0]?.id ?? null);
   };
 
-  const handleRebuild = () => {
-    // 문서 인덱스(학습 데이터) 재컴파일 트리거
-    window.dispatchEvent(new CustomEvent("docIndex:rebuild"));
-    // 가벼운 피드백
-    try {
-      // eslint-disable-next-line no-alert
-      alert("학습 인덱스 업데이트를 요청했습니다.");
-    } catch {
-      // 경고 창이 막힌 환경이면 조용히 패스
-    }
-  };
+// 기존 handleRebuild를 이렇게 교체
+const handleRebuild = async () => {
+  try {
+    const ai = await bootstrapLocalAI(() => {}, { companyId: 'mari' });
+    if (!ai.agentLang) (ai as any).agentLang = 'ko';
+
+    const stripMd = (s: string) =>
+      (s || '')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/`[^`]*`/g, ' ')
+        .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+        .replace(/\[[^\]]*\]\([^)]+\)/g, ' ')
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/[*_~>`#>-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    // ✅ 에디터에서 아직 저장 안 한 변경사항을 반영해서 인덱싱
+    const srcList = (() => {
+      const arr = [...list];
+      if (activeId) {
+        const i = arr.findIndex(x => x.id === activeId);
+        if (i >= 0) arr[i] = { ...arr[i], title, content };
+      }
+      return arr;
+    })();
+
+    const articles = srcList.map(a => ({
+      id: a.id,
+      title: a.title || '',
+      body: stripMd(a.content || ''),
+    }));
+
+    await compileIndex(ai, articles);
+
+    const docs = JSON.parse(localStorage.getItem('docDocs:v1') || '[]');
+    const idx  = JSON.parse(localStorage.getItem('docIndex:v1') || '{}');
+    console.log('[docIndex] docs:', docs.length, 'vocab terms:', Object.keys(idx.vocab || {}).length);
+    alert(`학습 완료: 문서 ${docs.length}개`);
+  } catch (e) {
+    console.error('[Docs] rebuild failed', e);
+    alert('학습 실패: 콘솔 로그 확인');
+  }
+};
+
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();

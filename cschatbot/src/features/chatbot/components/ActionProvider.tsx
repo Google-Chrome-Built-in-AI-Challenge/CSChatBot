@@ -7,6 +7,7 @@ import { prefilterFAQ } from '../ai/faqPrefilter';
 import { matchFAQFromShortlist, getFAQ as getFAQByIndex } from '../ai/faqMatcher';
 
 type CreateMsgFn = (message: string, options?: Record<string, unknown>) => any;
+type Article = { id: string; title: string; body?: string; content?: string; lang?: string };
 
 interface ActionProviderProps {
   createChatBotMessage: CreateMsgFn;
@@ -57,22 +58,44 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
   };
 
   // 재색인(문서 "학습") 이벤트 리스너
-  useEffect(() => {
-    const onRebuild = async () => {
-      try {
-        const ai = await ensureAI();
-        const articles = JSON.parse(localStorage.getItem('docArticles:v1') || '[]');
-        const { compileIndex } = await import('@/features/chatbot/ai/docIndex'); // 경로 통일
-        await compileIndex(ai, articles);
-        console.log('[docIndex] rebuilt');
-      } catch (e) {
-        console.error('[docIndex] rebuild failed', e);
-      }
-    };
-    window.addEventListener('docIndex:rebuild', onRebuild);
-    return () => window.removeEventListener('docIndex:rebuild', onRebuild);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ActionProvider.tsx — onRebuild 안
+useEffect(() => {
+  const onRebuild = async () => {
+    try {
+      const ai = await ensureAI();
+      const raw = JSON.parse(localStorage.getItem('docArticles:v1') || '[]');
+
+      // content -> body 매핑 + 마크다운 간단 제거
+      const stripMd = (s: string) =>
+        (s || '')
+          .replace(/```[\s\S]*?```/g, ' ')    // fenced code
+          .replace(/`[^`]*`/g, ' ')          // inline code
+          .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+          .replace(/\[[^\]]*\]\([^)]+\)/g, ' ')
+          .replace(/^#{1,6}\s+/gm, '')       // headings
+          .replace(/[*_~>`#>-]/g, ' ')       // markdown symbols
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const articles = (Array.isArray(raw) ? raw : []).map((a: any) => ({
+        id: a.id,
+        title: a.title || '',
+        body: stripMd(a.content || ''),   // ← 핵심
+      }));
+
+      const { compileIndex } = await import('@/features/chatbot/ai/docIndex');
+      await compileIndex(ai, articles);
+      console.log('[docIndex] rebuilt with', articles.length, 'articles');
+    } catch (e) {
+      console.error('[docIndex] rebuild failed', e);
+    }
+  };
+
+  window.addEventListener('docIndex:rebuild', onRebuild);
+  return () => window.removeEventListener('docIndex:rebuild', onRebuild);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
 
   // 샘플 액션
   const handleTicketPurchase = () => appendBot('티켓 구매 옵션을 선택해주세요', { widget: 'ticketPurchaseOptions' });
@@ -269,62 +292,96 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
       }
 
       // ===== FAQ 실패 시: 문서 인용 기반 생성 시도 =====
-      try {
-        const { searchDocs } = await import('@/features/chatbot/ai/docSearch'); // 경로 통일
-        const hits = await searchDocs(ai, raw);
-        if (hits.length) {
-          const hit = hits[0];
-          const sys = `Answer briefly (<=350 chars). If you cite, prefix with "참고:". No markdown.`;
-          const context = `Context from article "${hit.title}": ${hit.snippet}`;
-          const ask = `${sys}\nUser: ${raw}\n${context}\nAgent:`;
+try {
+  const { searchDocs } = await import('@/features/chatbot/ai/docSearch');
+  const hits = await searchDocs(ai, raw);
+  console.log('[docs hits]', hits);
+  if (hits.length) {
+    const hit = hits[0];
 
-          appendBot('…');
-          let draft = '';
-          for await (const chunk of ai.prompt.promptStream(ask)) {
-            draft += chunk;
-            if (draft.length >= 40 && draft.length % 20 === 0) replaceLastBot('생성 중…');
-          }
+    // 0) 스니펫 정리
+    const clean = (s: string) =>
+      (s || '')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/`[^`]*`/g, ' ')
+        .replace(/[-–—•·◦◆▶■□※☆★◇]+/g, ' ')
+        .replace(/[▁▂▃▄▅▆▇█━─═│┈┉┄┅]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-          // 역번역/호칭 보정
-          let localized = draft;
-          if (srcLang !== agentLang) {
-            const back = await ai.getTranslator(agentLang, srcLang);
-            localized = back ? await back.translate(draft) : draft;
-          }
-          if (srcLang.startsWith('ko') && ai.persona?.replyStyle?.useHonorific) {
-            const honor = ai.persona?.honorifics?.ko || '고객님';
-            const head = localized.slice(0, 20);
-            if (!new RegExp(`${honor}|고객님|♥`).test(head)) {
-              localized = `${honor}, ${localized}`;
-            }
-          }
-          const sentenceClamp = (s: string) =>
-            s.split(/(?<=[.!?。？！])\s+/).filter(Boolean).slice(0, 4).join(' ').trim();
-          const cut = (s: string) => s.length > 360 ? s.slice(0, 359) + '…' : s;
-          localized = cut(sentenceClamp(localized));
+    const koSnippet = clean((hit as any).snippet || '');
+    const titleKo   = clean(hit.title || '');
 
-          // DOC ID 출력(임시 요구사항)
-          try {
-            const { load } = await import('@/features/chatbot/ai/docIndex');
-            const idx = load();
-            const doc = idx.find((d: any) => d.id === (hit as any).articleId);
-            if (doc) {
-              localized += `\n\nDOC ID: ${doc.id}`;
-            } else if ((hit as any).articleId) {
-              localized += `\n\nDOC ID: ${(hit as any).articleId}`;
-            }
-          } catch {
-            if ((hit as any).articleId) {
-              localized += `\n\nDOC ID: ${(hit as any).articleId}`;
-            }
-          }
+    // 1) 질의 언어로 직접 생성 (한국어면 한국어)
+    const wantLang = srcLang;        // 질의 언어
+    const agentLangNow = ai.agentLang ?? 'en';
 
-          replaceLastBot(localized.trim());
-          return;
-        }
-      } catch (e) {
-        console.warn('[docs search] skipped', e);
-      }
+    // 필요하면 스니펫/질의를 wantLang로 번역
+    let ctx = koSnippet;
+    let userQ = raw;
+    if (wantLang !== 'ko') {
+      // 한글 외 질의면 컨텍스트를 질의 언어로 통일
+      const toWant = await ai.getTranslator('ko', wantLang);
+      if (toWant) ctx = await toWant.translate(koSnippet);
+    }
+
+    const sys =
+      wantLang.startsWith('ko')
+        ? '한국어로 2~4문장, 350자 이내로 답해. 사실만 말해. 필요하면 "참고:"로 출처를 앞에 붙여.'
+        : `Respond in ${wantLang}. Max 4 sentences, <=350 chars. Be factual. If citing, prefix with "Ref:".`;
+
+    const ask = `${sys}\n질문: ${userQ}\n컨텍스트(문서 "${titleKo}"): ${ctx}\n답변:`;
+
+    appendBot('…');
+    let draft = '';
+    for await (const chunk of ai.prompt.promptStream(ask)) {
+      draft += chunk;
+      if (draft.length >= 40 && draft.length % 20 === 0) replaceLastBot('생성 중…');
+    }
+
+    // 2) 역번역 금지: 질의 언어와 동일하면 그대로 사용
+    let localized = draft.trim();
+
+    // 3) 가비지 탐지 후 1회 재시도(영문 컨텍스트 -> ko 단번역)
+    const isGarbageKo = (s: string) => {
+      if (!wantLang.startsWith('ko')) return false;
+      const noSpace = s.replace(/\s/g, '');
+      const hangul = (noSpace.match(/[가-힣]/g) || []).length;
+      return s.length < 8 || hangul / Math.max(1, noSpace.length) < 0.4;
+    };
+
+    if (isGarbageKo(localized)) {
+      const toEn = await ai.getTranslator('ko', 'en');
+      const enCtx = toEn ? await toEn.translate(koSnippet) : koSnippet;
+      const enAsk =
+        `Respond in English. Max 4 sentences, <=350 chars. Be factual. If citing, prefix with "Ref:".\n` +
+        `User: ${raw}\nContext from "${titleKo}": ${enCtx}\nAgent:`;
+      draft = '';
+      for await (const chunk of ai.prompt.promptStream(enAsk)) draft += chunk;
+      const back = await ai.getTranslator('en', 'ko');
+      localized = back ? await back.translate(draft) : draft;
+    }
+
+    // 4) 길이·문장 제한 및 DOC ID 덧붙이기
+    const sentenceClamp = (s: string) =>
+      s.split(/(?<=[.!?。？！])\s+/).filter(Boolean).slice(0, 4).join(' ').trim();
+    const cut = (s: string) => (s.length > 360 ? s.slice(0, 359) + '…' : s);
+    localized = cut(sentenceClamp(localized));
+
+    try {
+      const { load } = await import('@/features/chatbot/ai/docIndex');
+      const idx = load();
+      const doc = idx.find((d: any) => d.id === (hit as any).articleId);
+      localized += `\n\nDOC ID: ${doc ? doc.id : (hit as any).articleId}`;
+    } catch {}
+
+    replaceLastBot(localized);
+    return;
+  }
+} catch (e) {
+  console.warn('[docs search] skipped', e);
+}
+
 
       // ===== 평소 모드: 페르소나 기반 생성 =====
       const sysRule = `Respond in ${agentLang}. No markdown. Max 4 sentences, <=350 chars.`;

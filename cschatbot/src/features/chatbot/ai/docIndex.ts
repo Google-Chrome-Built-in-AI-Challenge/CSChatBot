@@ -1,122 +1,144 @@
-// src/features/ai/docIndex.ts
-import type { Article } from "@/features/views/Docs"; // 없으면 동일 타입 로컬 선언
+// src/features/chatbot/ai/docIndex.ts
+type Article = { id: string; title: string; body?: string; content?: string; lang?: string };
 
-const STORAGE_KEY = "docIndex:v1";
+type Posting = { docId: number; tf: number };
+type TermRow = { df: number; idf: number; postings: Posting[] };
+type DocRow = { id: string; title: string; len: number; enText: string; koText: string; origLang?: string; body: string };
 
-type DocChunk = {
-  id: string; articleId: string;
-  heading?: string;
-  text: string; text_en: string;
-  keywords_en: string[];
-  scoreHint?: number;
-};
+let _index: {
+  version: number;
+  k: number;
+  b: number;
+  vocab: Record<string, TermRow>;
+  docs: DocRow[];
+  avgdl: number;
+} | null = null;
 
-type DocIndexEntry = {
-  id: string; title: string; title_en: string;
-  summary_en: string; keywords_en: string[];
-  chunks: DocChunk[]; updatedAt: number;
-};
+const IDX_KEY = 'docIndex:v1';
+const DOC_KEY = 'docDocs:v1';
 
-export type DocIndex = DocIndexEntry[];
+const tokenize = (s: string) =>
+  (s || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
 
-const save = (idx: DocIndex) => localStorage.setItem(STORAGE_KEY, JSON.stringify(idx));
-export const load = (): DocIndex => {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
-};
-
-const splitIntoChunks = (md: string, articleId: string): { heading?: string; text: string }[] => {
-  // 매우 단순: heading 기준 덩어리 → 길면 500~800자 근처로 쪼개기
-  const lines = md.split(/\r?\n/);
-  const out: { heading?: string; text: string }[] = [];
-  let curHead: string | undefined = undefined;
-  let buf: string[] = [];
-  const flush = () => {
-    const text = buf.join("\n").trim();
-    if (text) out.push({ heading: curHead, text });
-    buf = [];
+function persist() {
+  if (!_index) return;
+  const shallow = {
+    version: _index.version,
+    k: _index.k,
+    b: _index.b,
+    vocab: _index.vocab,
+    avgdl: _index.avgdl,
   };
-  for (const ln of lines) {
-    const m = ln.match(/^\s{0,3}#{1,6}\s+(.+?)\s*$/);
-    if (m) { flush(); curHead = m[1].trim(); continue; }
-    buf.push(ln);
-    if (buf.join("\n").length > 900) flush();
-  }
-  flush();
-  // 자잘한 공백 조정
-  return out.map(x => ({ ...x, text: x.text.replace(/\n{3,}/g, "\n\n") }));
-};
+  localStorage.setItem(IDX_KEY, JSON.stringify(shallow));
+  localStorage.setItem(
+    DOC_KEY,
+    JSON.stringify(
+      _index.docs.map(d => ({
+        id: d.id,
+        title: d.title,
+        len: d.len,
+        enText: d.enText,
+        koText: d.koText,
+        origLang: d.origLang,
+        body: d.body,
+      }))
+    )
+  );
+}
 
-const simpleKeywordExtract = (text_en: string, limit = 12): string[] => {
-  // 방어적 폴백: stopwords 대충 빼고 상위 n개
-  const stop = new Set("the a an and or is are was were be been being to for of on in with at from as by it this that these those you your we our they their".split(/\s+/));
-  const freq: Record<string, number> = {};
-  for (const w0 of text_en.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)) {
-    if (w0.length <= 2 || stop.has(w0)) continue;
-    freq[w0] = (freq[w0] ?? 0) + 1;
-  }
-  return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0, limit).map(([w])=>w);
-};
+export function load() {
+  const rawDocs = localStorage.getItem(DOC_KEY);
+  if (!rawDocs) return [] as DocRow[];
+  try { return JSON.parse(rawDocs) as DocRow[]; } catch { return []; }
+}
 
-export async function compileIndex(ai: any, articles: Article[]): Promise<DocIndex> {
-  const tToEn = async (s: string) => {
-    const det = (await ai.detector?.detect?.(s))?.[0];
-    const src = det?.detectedLanguage ?? "en";
-    if (src.startsWith("en")) return s;
-    const tr = await ai.getTranslator(src, "en");
-    return tr ? await tr.translate(s) : s;
-  };
-
-  // 키워드/요약은 내장 프롬프트를 활용. 실패 시 폴백.
-  const promptKeywords = async (textEn: string): Promise<string[]> => {
-    const ask = `Extract 8-14 concise domain keywords from the text. Lowercase. Comma-separated. No duplicates.\nText:\n${textEn}\nKeywords:`;
-    try {
-      let out = "";
-      for await (const chunk of ai.prompt.promptStream(ask)) out += chunk;
-      return out.split(/[,\n]/).map(s=>s.trim().toLowerCase()).filter(Boolean).slice(0, 14);
-    } catch { return simpleKeywordExtract(textEn, 12); }
-  };
-
-  const promptSummary = async (textEn: string): Promise<string> => {
-    const ask = `Summarize in 2 sentences (<=240 chars total), plain English, no markdown:\n${textEn}\nSummary:`;
-    try {
-      let out = ""; for await (const c of ai.prompt.promptStream(ask)) out += c;
-      return out.replace(/\s+/g, " ").trim().slice(0, 260);
-    } catch {
-      return textEn.split(/\.\s+/).slice(0,2).join(". ").slice(0, 260);
-    }
-  };
-
-  const out: DocIndex = [];
-  for (const a of articles) {
-    const chunksRaw = splitIntoChunks(a.content, a.id);
-    const title_en = await tToEn(a.title);
-    // 텍스트 너무 길면 요약에만 투입
-    const previewForSummary = chunksRaw.slice(0, 4).map(c=>c.text).join("\n\n").slice(0, 4000);
-    const preview_en = await tToEn(previewForSummary);
-
-    const chunks: DocChunk[] = [];
-    for (let i=0;i<chunksRaw.length;i++) {
-      const r = chunksRaw[i];
-      const text_en = await tToEn(r.text);
-      const keywords_en = await promptKeywords(text_en);
-      chunks.push({
-        id: `${a.id}#${i}`, articleId: a.id,
-        heading: r.heading, text: r.text, text_en, keywords_en,
-        scoreHint: r.heading ? 0.15 : 0
-      });
-    }
-
-    const entry: DocIndexEntry = {
-      id: a.id,
-      title: a.title,
-      title_en,
-      summary_en: await promptSummary(preview_en),
-      keywords_en: await promptKeywords(preview_en),
-      chunks,
-      updatedAt: a.updatedAt
+export function getIndex() {
+  if (_index) return _index;
+  const rawIdx = localStorage.getItem(IDX_KEY);
+  const rawDocs = localStorage.getItem(DOC_KEY);
+  if (!rawIdx || !rawDocs) return null;
+  try {
+    const idx = JSON.parse(rawIdx);
+    const docs: DocRow[] = JSON.parse(rawDocs);
+    _index = {
+      version: idx.version ?? 1,
+      k: idx.k ?? 1.5,
+      b: idx.b ?? 0.75,
+      vocab: idx.vocab ?? {},
+      docs,
+      avgdl: idx.avgdl ?? Math.max(1, docs.reduce((a, d) => a + d.len, 0) / Math.max(1, docs.length)),
     };
-    out.push(entry);
+    return _index;
+  } catch { return null; }
+}
+
+export async function compileIndex(ai: {
+  getTranslator: (from: string, to: string) => Promise<{ translate: (s: string) => Promise<string> } | null>;
+  detector?: { detect: (s: string) => Promise<{ detectedLanguage: string; confidence: number }[] | any> };
+}, articles: Article[]) {
+  const docs: DocRow[] = [];
+
+  for (const a of articles) {
+    const body = String((a as any).body ?? (a as any).content ?? '');
+    const title = String((a as any).title ?? '');
+    const text = `${title}\n${body}`.trim();
+
+    let enText = text;
+    let origLang = 'en';
+
+    try {
+      if (ai.detector?.detect) {
+        const list = await ai.detector.detect(text.slice(0, 2000));
+        const top = Array.isArray(list) ? list[0] : list;
+        const det = top?.detectedLanguage || 'en';
+        origLang = det;
+        if (det !== 'en') {
+          const t = await ai.getTranslator(det, 'en');
+          if (t) enText = await t.translate(text);
+        }
+      }
+    } catch { /* 번역 없어도 진행 */ }
+
+    const koText = text; // 원문 보존
+    const allTokens = [...tokenize(enText), ...tokenize(koText)];
+    docs.push({
+      id: String(a.id),
+      title,
+      body,
+      enText,
+      koText,
+      len: allTokens.length || 1,
+      origLang,
+    });
   }
-  save(out);
-  return out;
+
+  const vocab: Record<string, TermRow> = {};
+  docs.forEach((d, docId) => {
+    const counts = new Map<string, number>();
+    // 영어 + 원문 모두 토큰화해서 같은 vocab에 적재
+    for (const t of [...tokenize(d.enText), ...tokenize(d.koText)]) {
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    counts.forEach((tf, term) => {
+      const row = (vocab[term] ??= { df: 0, idf: 0, postings: [] });
+      row.postings.push({ docId, tf });
+    });
+  });
+
+  const N = docs.length || 1;
+  Object.values(vocab).forEach(row => {
+    row.df = row.postings.length;
+    row.idf = Math.log((N - row.df + 0.5) / (row.df + 0.5) + 1e-9);
+  });
+
+  const avgdl = Math.max(1, docs.reduce((a, d) => a + d.len, 0) / Math.max(1, N));
+  _index = { version: 1, k: 1.5, b: 0.75, vocab, docs, avgdl };
+  persist();
+  return _index;
 }
