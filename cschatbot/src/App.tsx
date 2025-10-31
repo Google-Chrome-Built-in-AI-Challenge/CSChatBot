@@ -38,44 +38,49 @@ function App() {
         <div className="app-container">
           <h1 className={`main-title ${titleMoved ? 'move' : ''}`}>cschatbot</h1>
 
-          <div className={`dashboard-area ${showDashboard ? 'show' : ''}`}>
-            <div className="settings-list">
-              <div className="setting-item" onClick={() => setActiveView("agent")}>
-                에이전트 프로필 설정하기
-              </div>
-              <div className="setting-item" onClick={() => setActiveView("glossary")}>
-                용어사전 설정하기
-              </div>
-              <div className="setting-item" onClick={() => setActiveView("faq")}>
-                FAQ 설정하기
-              </div>
-              <div className="setting-item" onClick={() => setActiveView("docs")}>
-                도큐먼트/아티클 설정하기
-              </div>
-            </div>
+<div className={`dashboard-area ${showDashboard ? 'show' : ''}`}>
+  <div className="dashboard-content" style={{ display: 'flex', gap: '2rem' }}>
+    {/* 왼쪽: 설정 버튼들 */}
+    <div className="settings-list" style={{ minWidth: '200px' }}>
+      <div className="setting-item" onClick={() => setActiveView("agent")}>
+        에이전트 프로필 설정하기
+      </div>
+      <div className="setting-item" onClick={() => setActiveView("glossary")}>
+        용어사전 설정하기
+      </div>
+      <div className="setting-item" onClick={() => setActiveView("faq")}>
+        FAQ 설정하기
+      </div>
+      <div className="setting-item" onClick={() => setActiveView("docs")}>
+        도큐먼트/아티클 설정하기
+      </div>
+    </div>
 
-            <div className="view-area">
-              {activeView === "agent" && <AgentProfile />}
-              {activeView === "glossary" && <Glossary />}
-              {activeView === "faq" && <FAQ />}
-              {activeView === "docs" && <Docs />}
-            </div>
+    {/* 오른쪽: 선택된 뷰 */}
+    <div className="view-area" style={{ flex: 1 }}>
+      {activeView === "agent" && <AgentProfile />}
+      {activeView === "glossary" && <Glossary />}
+      {activeView === "faq" && <FAQ />}
+      {activeView === "docs" && <Docs />}
+    </div>
+  </div>
 
-            {!showChatbot ? (
-              <Button
-                onClick={() => setShowChatbot(true)}
-                className="chatbot-toggle-btn"
-              >
-                FAQ
-              </Button>
-            ) : (
-              <Chatbot
-                config={config}
-                messageParser={MessageParser}
-                actionProvider={ActionProvider}
-              />
-            )}
-          </div> {/* dashboard-area 닫힘 */}
+  {/* FAQ 버튼 / 챗봇 */}
+  {!showChatbot ? (
+    <Button
+      onClick={() => setShowChatbot(true)}
+      className="chatbot-toggle-btn"
+    >
+      FAQ
+    </Button>
+  ) : (
+    <Chatbot
+      config={config}
+      messageParser={MessageParser}
+      actionProvider={ActionProvider}
+    />
+  )}
+</div>
         </div> {/* app-container 닫힘 */}
       </BrowserRouter>
   );

@@ -99,7 +99,7 @@ const AgentProfile = () => {
         <button className="border rounded px-3" onClick={handleReset}>초기화</button>
       </div>
 
-      {isSaved && <p className="save-message">✅ 변경사항이 저장되었습니다.</p>}
+      {isSaved && <p className="save-message">변경사항이 저장되었습니다.</p>}
     </div>
   );
 };
