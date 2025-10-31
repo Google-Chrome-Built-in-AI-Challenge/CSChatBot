@@ -1,0 +1,182 @@
+/* Docs.css */
+.docs-card {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  height: 100vh;
+  padding: 16px;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 좌측 리스트 영역 */
+.docs-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.docs-editor-header {
+  display: flex;
+  align-items: flex-start; /* 기존: center였을 경우 flex-start로 변경 */
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.docs-status {
+  margin-top: -0.7rem; /* 숫자를 조절해서 버튼 위치 위/아래 이동 */
+}
+
+.docs-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.docs-btn:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.docs-input {
+  width: 100%;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  outline: none;
+}
+
+.docs-input:focus {
+  border-color: #858585;
+  box-shadow: 0 0 4px #dddddd;
+}
+
+.docs-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+}
+
+.docs-list-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #eee;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: all 0.2s;
+}
+
+.docs-list-item:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.docs-list-item.active {
+  border: 2px solid #4b4b4b;
+  background: #eef2ff;
+}
+
+.docs-list-item button {
+  border: 1px solid #f0f0f0;
+  background: #fff;
+  color: #000000;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.docs-list-item button:hover {
+  background: #fee2e2;
+}
+
+.docs-list-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111;
+}
+
+.docs-list-date {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* 우측 에디터 영역 */
+.docs-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 8px;
+}
+
+.docs-editor-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.docs-status {
+  font-size: 12px;
+  color: #666;
+}
+
+.docs-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.docs-section-title {
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.docs-editor-textarea {
+  width: 100%;
+  height: calc(100vh - 220px);
+  padding: 12px;
+  border: 1.5px solid #ccc;
+  border-radius: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.docs-editor-textarea:focus {
+  border-color: #6d8fc6;
+  box-shadow: 0 0 6px #a7c0eb;
+  outline: none;
+}
+
+.docs-preview {
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 12px;
+  overflow-y: auto;
+  height: calc(100vh - 220px);
+  background: #fafafa;
+  width: 100%;
+    margin-top: 35px;
+}
+
+.docs-empty {
+  padding: 24px;
+  color: #666;
+  font-size: 14px;
+  text-align: center;
+}

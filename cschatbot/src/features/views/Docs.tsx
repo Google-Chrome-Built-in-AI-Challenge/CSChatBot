@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { bootstrapLocalAI } from '@/features/chatbot/ai/bootstrap';
 import { compileIndex } from '@/features/chatbot/ai/docIndex';
+import './Docs.css';
 
 // LocalStorage keys
 const STORAGE_KEY = "docArticles:v1";
@@ -11,32 +12,11 @@ export type Article = {
   id: string;
   title: string;
   content: string;
-  updatedAt: number; // epoch ms
-};
-
-// 아래 DocIndex* 타입들은 로컬 편의를 위해 남겨두었지만
-// 실제 인덱싱/검색은 features/ai/docIndex / docSearch에서 수행한다.
-type DocChunk = {
-  id: string;           // `${articleId}#${n}`
-  articleId: string;
-  heading?: string;
-  text: string;         // 원문
-  text_en: string;      // 영어 정규화(번역/그대로)
-  keywords_en: string[]; // 추출 키워드
-  scoreHint?: number;   // 빌드 시 힌트(heading 가중치)
-};
-
-type DocIndexEntry = {
-  id: string;           // articleId
-  title: string;
-  title_en: string;
-  summary_en: string;   // 2~3문장 요약
-  keywords_en: string[];
-  chunks: DocChunk[];
   updatedAt: number;
 };
 
-type DocIndex = DocIndexEntry[];
+const uid = () =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 function loadArticles(): Article[] {
   try {
@@ -48,79 +28,39 @@ function loadArticles(): Article[] {
     return [];
   }
 }
+
 function saveArticles(list: Article[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
-// tiny id
-const uid = () =>
-  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-
+// Markdown 동적 import
 const useReactMarkdown = () => {
   const [MD, setMD] = useState<null | React.ComponentType<any>>(null);
   useEffect(() => {
     let mounted = true;
-    // optional dynamic import; falls back gracefully if not installed
     import("react-markdown")
       .then((m) => mounted && setMD(() => (m.default as any) ?? (m as any)))
       .catch(() => mounted && setMD(null));
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
   return MD;
 };
 
-const Empty = ({ text }: { text: string }) => (
-  <div style={{ padding: 24, color: "#666", fontSize: 14 }}>{text}</div>
-);
-
-const ToolbarButton: React.FC<
-  React.ButtonHTMLAttributes<HTMLButtonElement>
-> = (props) => (
-  <button
-    {...props}
-    className={(props.className ?? "") + " docs-btn"}
-    style={{
-      padding: "8px 12px",
-      borderRadius: 8,
-      border: "1px solid #ddd",
-      background: "#fff",
-      cursor: "pointer",
-    }}
-  />
+// Reusable components
+const ToolbarButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
+  <button {...props} className="docs-btn" />
 );
 
 const Input = (p: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <input
-    {...p}
-    style={{
-      width: "100%",
-      padding: "10px 12px",
-      border: "1px solid #ddd",
-      borderRadius: 8,
-      fontSize: 14,
-      ...(p.style ?? {}),
-    }}
-  />
+  <input {...p} className="docs-input" />
 );
 
 const Textarea = (p: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-  <textarea
-    {...p}
-    style={{
-      width: "100%",
-      height: "calc(100vh - 220px)",
-      padding: "12px",
-      border: "1px solid #ddd",
-      borderRadius: 8,
-      fontFamily:
-        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-      fontSize: 14,
-      lineHeight: 1.5,
-      ...(p.style ?? {}),
-    }}
-  />
+  <textarea {...p} className="docs-editor-textarea" />
+);
+
+const Empty = ({ text }: { text: string }) => (
+  <div className="docs-empty">{text}</div>
 );
 
 const ListItem: React.FC<{
@@ -130,51 +70,15 @@ const ListItem: React.FC<{
   onDelete: () => void;
 }> = ({ article, active, onClick, onDelete }) => {
   const date = new Date(article.updatedAt);
-  const stamp = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(date.getDate()).padStart(2, "0")} ${String(
-    date.getHours()
-  ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  const stamp = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 
   return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: "10px 12px",
-        borderRadius: 8,
-        border: active ? "2px solid #4f46e5" : "1px solid #eee",
-        background: active ? "#eef2ff" : "#fff",
-        cursor: "pointer",
-        display: "grid",
-        gridTemplateColumns: "1fr auto",
-        alignItems: "center",
-        gap: 8,
-      }}
-    >
+    <div className={`docs-list-item ${active ? "active" : ""}`} onClick={onClick}>
       <div>
-        <div style={{ fontWeight: 600, fontSize: 14, color: "#111" }}>
-          {article.title || "(제목 없음)"}
-        </div>
-        <div style={{ fontSize: 12, color: "#666" }}>{stamp}</div>
+        <div className="docs-list-title">{article.title || "(제목 없음)"}</div>
+        <div className="docs-list-date">{stamp}</div>
       </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        title="삭제"
-        style={{
-          border: "1px solid #f0f0f0",
-          background: "#fff",
-          color: "#b91c1c",
-          padding: "6px 10px",
-          borderRadius: 6,
-          cursor: "pointer",
-        }}
-      >
-        삭제
-      </button>
+      <button onClick={(e) => { e.stopPropagation(); onDelete(); }}>삭제</button>
     </div>
   );
 };
@@ -186,24 +90,17 @@ const Docs: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(() =>
     localStorage.getItem(LAST_OPEN_KEY)
   );
-  const active = useMemo(
-    () => list.find((x) => x.id === activeId) ?? null,
-    [list, activeId]
-  );
+  const active = useMemo(() => list.find((x) => x.id === activeId) ?? null, [list, activeId]);
   const [title, setTitle] = useState(active?.title ?? "");
   const [content, setContent] = useState(active?.content ?? "");
   const [filter, setFilter] = useState("");
-  const MD = useReactMarkdown();
   const dirtyRef = useRef(false);
+  const MD = useReactMarkdown();
 
-  // open last
   useEffect(() => {
-    if (!active && list.length && !activeId) {
-      setActiveId(list[0].id);
-    }
+    if (!active && list.length && !activeId) setActiveId(list[0].id);
   }, [list, active, activeId]);
 
-  // when active changes, hydrate editor
   useEffect(() => {
     setTitle(active?.title ?? "");
     setContent(active?.content ?? "");
@@ -211,24 +108,9 @@ const Docs: React.FC = () => {
     dirtyRef.current = false;
   }, [active?.id]);
 
-  // persist list on change
   useEffect(() => {
     saveArticles(list);
   }, [list]);
-
-  // save shortcut
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const isSave = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s";
-      if (isSave) {
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, title, content, list]);
 
   const handleAdd = () => {
     const blank: Article = {
@@ -237,8 +119,7 @@ const Docs: React.FC = () => {
       content: "# 새 아티클\n여기에 내용을 작성하세요.",
       updatedAt: Date.now(),
     };
-    const next = [blank, ...list];
-    setList(next.sort((a, b) => b.updatedAt - a.updatedAt));
+    setList([blank, ...list].sort((a, b) => b.updatedAt - a.updatedAt));
     setActiveId(blank.id);
   };
 
@@ -247,14 +128,8 @@ const Docs: React.FC = () => {
     const idx = list.findIndex((x) => x.id === activeId);
     if (idx < 0) return;
     const next = [...list];
-    next[idx] = {
-      ...next[idx],
-      title: title.trim(),
-      content,
-      updatedAt: Date.now(),
-    };
-    next.sort((a, b) => b.updatedAt - a.updatedAt);
-    setList(next);
+    next[idx] = { ...next[idx], title: title.trim(), content, updatedAt: Date.now() };
+    setList(next.sort((a, b) => b.updatedAt - a.updatedAt));
     dirtyRef.current = false;
   };
 
@@ -264,51 +139,41 @@ const Docs: React.FC = () => {
     if (activeId === id) setActiveId(next[0]?.id ?? null);
   };
 
-// 기존 handleRebuild를 이렇게 교체
-const handleRebuild = async () => {
-  try {
-    const ai = await bootstrapLocalAI(() => {}, { companyId: 'mari' });
-    if (!ai.agentLang) (ai as any).agentLang = 'ko';
+  const handleRebuild = async () => {
+    try {
+      const ai = await bootstrapLocalAI(() => {}, { companyId: 'mari' });
+      if (!ai.agentLang) (ai as any).agentLang = 'ko';
 
-    const stripMd = (s: string) =>
-      (s || '')
-        .replace(/```[\s\S]*?```/g, ' ')
-        .replace(/`[^`]*`/g, ' ')
-        .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
-        .replace(/\[[^\]]*\]\([^)]+\)/g, ' ')
-        .replace(/^#{1,6}\s+/gm, '')
-        .replace(/[*_~>`#>-]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const stripMd = (s: string) =>
+        (s || '')
+          .replace(/```[\s\S]*?```/g, ' ')
+          .replace(/`[^`]*`/g, ' ')
+          .replace(/^#{1,6}\s+/gm, '')
+          .replace(/[*_~>`#>-]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
 
-    // ✅ 에디터에서 아직 저장 안 한 변경사항을 반영해서 인덱싱
-    const srcList = (() => {
-      const arr = [...list];
-      if (activeId) {
-        const i = arr.findIndex(x => x.id === activeId);
-        if (i >= 0) arr[i] = { ...arr[i], title, content };
-      }
-      return arr;
-    })();
+      const srcList = (() => {
+        const arr = [...list];
+        if (activeId) {
+          const i = arr.findIndex(x => x.id === activeId);
+          if (i >= 0) arr[i] = { ...arr[i], title, content };
+        }
+        return arr;
+      })();
 
-    const articles = srcList.map(a => ({
-      id: a.id,
-      title: a.title || '',
-      body: stripMd(a.content || ''),
-    }));
+      const articles = srcList.map(a => ({ id: a.id, title: a.title || '', body: stripMd(a.content || '') }));
+      await compileIndex(ai, articles);
 
-    await compileIndex(ai, articles);
-
-    const docs = JSON.parse(localStorage.getItem('docDocs:v1') || '[]');
-    const idx  = JSON.parse(localStorage.getItem('docIndex:v1') || '{}');
-    console.log('[docIndex] docs:', docs.length, 'vocab terms:', Object.keys(idx.vocab || {}).length);
-    alert(`학습 완료: 문서 ${docs.length}개`);
-  } catch (e) {
-    console.error('[Docs] rebuild failed', e);
-    alert('학습 실패: 콘솔 로그 확인');
-  }
-};
-
+      const docs = JSON.parse(localStorage.getItem('docDocs:v1') || '[]');
+      const idx  = JSON.parse(localStorage.getItem('docIndex:v1') || '{}');
+      console.log('[docIndex] docs:', docs.length, 'vocab terms:', Object.keys(idx.vocab || {}).length);
+      alert(`학습 완료: 문서 ${docs.length}개`);
+    } catch (e) {
+      console.error('[Docs] rebuild failed', e);
+      alert('학습 실패: 콘솔 로그 확인');
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -321,40 +186,18 @@ const handleRebuild = async () => {
   }, [list, filter]);
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "320px 1fr",
-        gap: 16,
-        height: "100%",
-        padding: 12,
-      }}
-    >
-      {/* Left: list */}
-      <div style={{ borderRight: "1px solid #eee", paddingRight: 12 }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+    <div className="docs-card">
+      {/* 좌측 리스트 */}
+      <div>
+        <div className="docs-toolbar">
           <ToolbarButton onClick={handleAdd}>+ 새 아티클</ToolbarButton>
-          <ToolbarButton onClick={handleSave} disabled={!activeId}>
-            ⌘/Ctrl+S 저장
-          </ToolbarButton>
-          <ToolbarButton onClick={handleRebuild}>
-            학습 업데이트
-          </ToolbarButton>
+          <ToolbarButton onClick={handleSave} disabled={!activeId}>저장</ToolbarButton>
+          <ToolbarButton onClick={handleRebuild}>학습 업데이트</ToolbarButton>
         </div>
-        <Input
-          placeholder="검색 (제목/본문)"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <div
-          style={{
-            display: "grid",
-            gap: 8,
-            marginTop: 12,
-            maxHeight: "calc(100vh - 220px)",
-            overflow: "auto",
-          }}
-        >
+
+        <Input placeholder="검색 (제목/본문)" value={filter} onChange={(e) => setFilter(e.target.value)} />
+
+        <div className="docs-list-items">
           {filtered.length ? (
             filtered.map((a) => (
               <ListItem
@@ -371,74 +214,24 @@ const handleRebuild = async () => {
         </div>
       </div>
 
-      {/* Right: editor */}
-      <div style={{ paddingLeft: 4 }}>
+      {/* 우측 에디터 */}
+      <div className="docs-editor">
         {active ? (
           <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto",
-                gap: 8,
-                alignItems: "center",
-                marginBottom: 8,
-              }}
-            >
-              <Input
-                placeholder="제목"
-                value={title}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  dirtyRef.current = true;
-                }}
-              />
-              <div style={{ fontSize: 12, color: "#666" }}>
-                {dirtyRef.current ? "변경사항 있음" : "저장됨"}
+            <div className="docs-editor-header">
+              <Input placeholder="제목" value={title} onChange={(e) => { setTitle(e.target.value); dirtyRef.current = true; }} />
+              <div className="docs-status">
+                <ToolbarButton onClick={handleSave} disabled={!activeId}>저장</ToolbarButton>
               </div>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-              }}
-            >
+            <div className="docs-editor-grid">
               <div>
-                <div style={{ fontWeight: 600, margin: "6px 0" }}>Markdown</div>
-                <Textarea
-                  value={content}
-                  onChange={(e) => {
-                    setContent(e.target.value);
-                    dirtyRef.current = true;
-                  }}
-                />
+                <div className="docs-section-title">Markdown</div>
+                <Textarea value={content} onChange={(e) => { setContent(e.target.value); dirtyRef.current = true; }} />
               </div>
-              <div
-                style={{
-                  border: "1px solid #eee",
-                  borderRadius: 8,
-                  padding: 12,
-                  overflow: "auto",
-                  height: "calc(100vh - 220px)",
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>미리보기</div>
-                {MD ? (
-                  <MD>{content || "_내용이 없습니다._"}</MD>
-                ) : (
-                  <pre
-                    style={{
-                      whiteSpace: "pre-wrap",
-                      fontFamily: "inherit",
-                      color: "#444",
-                    }}
-                  >
-                    react-markdown 미설치 상태. 텍스트로 표시합니다.
-
-{content || "(내용 없음)"}
-                  </pre>
-                )}
+              <div className="docs-preview">
+                {MD ? <MD>{content || "_내용이 없습니다._"}</MD> : <pre style={{whiteSpace: "pre-wrap"}}>{content || "(내용 없음)"}</pre>}
               </div>
             </div>
           </>
@@ -451,4 +244,3 @@ const handleRebuild = async () => {
 };
 
 export default Docs;
-

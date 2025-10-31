@@ -1,0 +1,163 @@
+/* FAQ.css */
+.faq-card {
+  width: 800px;
+  margin: -3.8rem auto;
+  /* padding: 2rem; */
+  border-radius: 16px;
+  background: #ffffff;
+  /* box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08); */
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: -5.8rem;
+  
+}
+
+.faq-card h2 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.faq-card p {
+  font-size: 0.95rem;
+  color: #555;
+}
+
+.input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.input-area input,
+.input-area textarea {
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border 0.2s, box-shadow 0.2s;
+
+}
+
+.input-area input:focus,
+.input-area textarea:focus {
+  border-color: #6d8fc6;
+  box-shadow: 0 0 4px #a7c0eb;
+  outline: none;
+}
+
+.input-area button {
+  width: fit-content;
+  background-color: #6d8fc6;
+  color: white;
+  border: none;
+  padding: 0.7rem 1.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.input-area button:hover {
+  background-color: #5b7db5;
+}
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.faq-list li {
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #f9f9f9;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.faq-list li h4 {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.3rem;
+}
+
+.faq-list li p {
+  color: #555;
+  font-size: 0.9rem;
+  margin: 0.2rem 0;
+}
+
+.faq-list li .date {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 0.5rem;
+}
+
+.no-items {
+  color: #888;
+  font-size: 0.9rem;
+  
+}
+
+/* 기존 faq-card 스타일은 그대로 두고, 새로운 그리드 클래스만 추가 */
+/* FAQ.css에 추가 */
+.faq-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px; /* 좌측 입력 1fr, 우측 리스트 360px */
+  gap: 24px;
+  width: 100%;
+  max-width: 960px;        /* 최대 너비 제한 */
+  margin: 0 auto;          /* 화면 중앙 정렬 */
+  padding: 0 4px;         /* 좌우 패딩 추가 */
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 왼쪽 입력 영역 */
+.faq-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+    padding-left: 10%;
+    width: 400px;
+}
+
+/* 버튼 오른쪽 정렬 */
+.button-wrapper {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 오른쪽 리스트 영역 */
+.faq-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* border-left: 1px solid #eee; */
+  padding-left: 20%;
+  max-height: 80vh;
+  overflow-y: auto;
+  width: 400px;
+}
+
+.faq-input-area .button-wrapper button {
+  background-color: #000; /* 배경 검은색 */
+  color: #fff;            /* 텍스트 흰색 */
+  border: none;           /* 테두리 제거 */
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  /* font-weight: bold; */
+  transition: background-color 0.2s ease;
+  height: 45px;
+  width: 105px;
+}
+
+.faq-input-area .button-wrapper button:hover {
+  background-color: #333; /* 호버 시 약간 밝게 */
+}

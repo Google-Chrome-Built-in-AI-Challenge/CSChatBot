@@ -2,6 +2,7 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import { compilePersonaFromText } from '@/features/chatbot/ai/personaCompiler';
 import { savePersonaToLocalStorage, getPersonaFromLocalStorage } from '@/features/chatbot/ai/personaLoader';
+import './AgentProfile.css'; // 👈 추가
 
 type StoredProfile = { name: string; role: string; profileImage: string | null };
 
@@ -14,7 +15,6 @@ const AgentProfile = () => {
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
-    // 프로필(이미지 포함)
     try {
       const raw = localStorage.getItem(PROFILE_LS);
       if (raw) {
@@ -24,7 +24,6 @@ const AgentProfile = () => {
         setProfileImage(p.profileImage ?? null);
       }
     } catch {}
-    // 페르소나(있으면 UI에 반영)
     const persona = getPersonaFromLocalStorage();
     if (persona) {
       setName(persona.displayName || '');
@@ -41,11 +40,9 @@ const AgentProfile = () => {
   };
 
   const handleSave = () => {
-    // 1) 프로필 저장
     const agentData: StoredProfile = { name, role, profileImage };
     localStorage.setItem(PROFILE_LS, JSON.stringify(agentData));
 
-    // 2) 역할 텍스트를 Persona로 컴파일 후 저장
     const persona = compilePersonaFromText(name, role);
     savePersonaToLocalStorage(persona);
 
@@ -55,7 +52,6 @@ const AgentProfile = () => {
 
   const handleReset = () => {
     localStorage.removeItem(PROFILE_LS);
-    // 페르소나도 초기화
     localStorage.removeItem('agentPersona:v1');
     setName('');
     setRole('');
@@ -63,16 +59,18 @@ const AgentProfile = () => {
   };
 
   return (
-    <div className="centered-view">
+    <div className="agent-card">
       <h2>에이전트 프로필 설정</h2>
 
-      <div className="profile-image-container">
-        {profileImage ? (
-          <img src={profileImage} alt="Profile" className="profile-image" />
-        ) : (
-          <div className="profile-placeholder">프로필 사진</div>
-        )}
-        <input type="file" accept="image/*" onChange={handleImageChange} />
+      <div className="image-upload">
+        <label className="image-wrapper">
+          {profileImage ? (
+            <img src={profileImage} alt="Profile" className="profile-image" />
+          ) : (
+            <div className="profile-placeholder">+</div>
+          )}
+          <input type="file" accept="image/*" onChange={handleImageChange} hidden />
+        </label>
       </div>
 
       <div className="form-group">
@@ -94,12 +92,12 @@ const AgentProfile = () => {
         />
       </div>
 
-      <div className="flex gap-2">
+      <div className="button-group">
         <button className="save-button" onClick={handleSave}>저장하기</button>
-        <button className="border rounded px-3" onClick={handleReset}>초기화</button>
+        <button className="reset-button" onClick={handleReset}>초기화</button>
       </div>
 
-      {isSaved && <p className="save-message">변경사항이 저장되었습니다.</p>}
+      {isSaved && <p className="save-message"> 변경사항이 저장되었습니다.</p>}
     </div>
   );
 };

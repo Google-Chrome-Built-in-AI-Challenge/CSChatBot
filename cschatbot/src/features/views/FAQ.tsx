@@ -2,13 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { enrichFAQItem } from "@/features/chatbot/ai/faqEnricher";
 import type { FAQItem } from "@/features/chatbot/types";
+import './FAQ.css'; // 기존 CSS 적용
 
 const FAQ: React.FC = () => {
-  // 문서 연결 상태 (컴포넌트 내부로 이동!)
   const [docId, setDocId] = useState<string | undefined>(undefined);
   const [docList, setDocList] = useState<{ id: string; title: string }[]>([]);
-
-  // 입력/목록 상태
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [faqList, setFaqList] = useState<FAQItem[]>([]);
@@ -23,14 +21,12 @@ const FAQ: React.FC = () => {
           question: x.question ?? "",
           answer: x.answer ?? "",
           date: x.date,
-          docId: x.docId,         // 없으면 undefined
-          docAnchor: x.docAnchor, // 없으면 undefined
+          docId: x.docId,
+          docAnchor: x.docAnchor,
         }));
         setFaqList(migrated);
         localStorage.setItem("faqList", JSON.stringify(migrated));
-      } catch {
-        // 구형 데이터면 조용히 패스
-      }
+      } catch {}
     }
   }, []);
 
@@ -44,9 +40,7 @@ const FAQ: React.FC = () => {
           title: d.title || "(제목 없음)",
         }))
       );
-    } catch {
-      // pass
-    }
+    } catch {}
   }, []);
 
   const handleSave = async () => {
@@ -56,7 +50,6 @@ const FAQ: React.FC = () => {
     }
 
     const enriched = await enrichFAQItem(question, answer, { docId });
-
     const updated = [enriched, ...faqList];
     setFaqList(updated);
     localStorage.setItem("faqList", JSON.stringify(updated));
@@ -67,32 +60,29 @@ const FAQ: React.FC = () => {
   };
 
   return (
-    <div className="centered-view">
-      <h2>FAQ 설정</h2>
-      <p>자주 묻는 질문(FAQ)을 등록하고 관리할 수 있습니다.</p>
-
-      {/* 입력 필드 */}
-      <div className="w-full max-w-lg mt-6 flex flex-col gap-3">
+    <div className="faq-card-grid">
+      {/* 좌측: 입력 영역 */}
+      <div className="faq-input-area">
+        <h2>FAQ 작성</h2>
+        <p>자주 묻는 질문(FAQ)을 등록하세요.</p>
         <input
           type="text"
           placeholder="대표 질문을 입력하세요"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          className="border p-2 rounded-lg"
         />
         <textarea
           placeholder="해당 질문의 답변을 입력하세요"
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
-          className="border p-2 rounded-lg h-24 resize-none"
         />
+
         <select
           value={docId ?? ""}
           onChange={(e) => {
             const v = (e.target as HTMLSelectElement).value;
             setDocId(v || undefined);
           }}
-          className="border p-2 rounded-lg"
         >
           <option value="">문서 연결 안 함</option>
           {docList.map((d) => (
@@ -101,38 +91,26 @@ const FAQ: React.FC = () => {
             </option>
           ))}
         </select>
-        <button
-          onClick={handleSave}
-          className="bg-green-500 text-white rounded-lg py-2 hover:bg-green-600 transition"
-        >
-          FAQ 등록
-        </button>
+
+        {/* 버튼: 옛날 디자인 적용 */}
+        <div className="button-wrapper">
+          <button onClick={handleSave}>FAQ 등록</button>
+        </div>
       </div>
 
-      {/* 저장된 FAQ 목록 */}
-      <div className="mt-8 w-full max-w-lg">
-        <h3 className="text-lg font-semibold mb-2">등록된 FAQ 목록</h3>
+      {/* 우측: FAQ 리스트 */}
+      <div className="faq-list-wrapper">
+        <h2>등록된 FAQ</h2>
         {faqList.length === 0 ? (
-          <p className="text-gray-500">등록된 FAQ가 없습니다.</p>
+          <p className="no-items">등록된 FAQ가 없습니다.</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="faq-list">
             {faqList.map((faq, idx) => (
-              <li
-                key={idx}
-                className="border p-3 rounded-lg bg-gray-50 shadow-sm"
-              >
-                <h4 className="font-semibold">Q. {faq.question}</h4>
-                <p className="text-sm text-gray-700 whitespace-pre-line mt-1">
-                  A. {faq.answer}
-                </p>
-                {faq.date && (
-                  <p className="text-xs text-gray-400 mt-2">{faq.date}</p>
-                )}
-                {faq.docId && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    연결 문서 ID: {faq.docId}
-                  </p>
-                )}
+              <li key={idx}>
+                <h4>Q. {faq.question}</h4>
+                <p>A. {faq.answer}</p>
+                {faq.date && <p className="date">{faq.date}</p>}
+                {faq.docId && <p className="date">연결 문서 ID: {faq.docId}</p>}
               </li>
             ))}
           </ul>

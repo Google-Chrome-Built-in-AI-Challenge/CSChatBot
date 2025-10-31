@@ -1,0 +1,113 @@
+/* Glossary.css - 2열 레이아웃 */
+.glossary-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* 좌: 리스트, 우: 새 단어 */
+  gap: 16px;
+  width: 800px;
+  margin: -2.8rem auto;
+
+  padding-top: -2.8rem;
+  padding-left: 15rem;
+  border-radius: 16px;
+  background: #fff;
+  /* box-shadow: 0 8px 30px rgba(0,0,0,0.08); */
+  font-family: 'Segoe UI', Roboto, sans-serif;
+  height: calc(100vh - 4rem);
+  box-sizing: border-box;
+  margin: -40px;
+}
+
+/* 좌측 리스트 영역 */
+.glossary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-right: 1px solid #eee;
+  padding-right: 12px;
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+.glossary-list li {
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 12px;
+  /* box-shadow: 0 2px 8px rgba(0,0,0,0.05); */
+  list-style: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.glossary-list li:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.glossary-list li h4 {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.glossary-list li p {
+  font-size: 0.95rem;
+  color: #555;
+  margin: 2px 0;
+}
+
+.glossary-list li p.date {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 4px;
+}
+
+/* 우측 입력 영역 */
+.input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 12px;
+  max-height: 100%;
+}
+
+.input-area input,
+.input-area textarea {
+  border: 1.5px solid #ccc;
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+
+.input-area input:focus,
+.input-area textarea:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 6px #c7d2fe;
+  outline: none;
+}
+
+.input-area button {
+  align-self: flex-end; /* 항상 오른쪽 정렬 */
+  padding: 0.7rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background-color: #4f46e5;
+  color: #fff;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.input-area button:hover {
+  background-color: #4338ca;
+  transform: translateY(-1px);
+}
+
+/* 비어있을 때 */
+.no-items {
+  padding: 24px;
+  color: #666;
+  font-size: 0.9rem;
+  text-align: center;
+}

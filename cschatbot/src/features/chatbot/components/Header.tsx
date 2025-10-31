@@ -5,8 +5,8 @@ import { X } from "lucide-react";
 const HeaderContainer = styled.div`
   background: linear-gradient(
     90deg,
-    rgba(109, 143, 198, 1) 0%,
-    rgba(136, 208, 199, 1) 100%
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 100%
   );
   width: 100%;
   min-width: 280px; /* 혹시 너무 좁게 잘리는 경우 방지 */
