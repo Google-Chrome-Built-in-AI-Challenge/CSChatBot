@@ -1,37 +1,69 @@
+// src/features/views/FAQ.tsx
 import React, { useState, useEffect } from "react";
-import { enrichFAQItem, FAQItem } from "@/features/chatbot/ai/faqEnricher";
+import { enrichFAQItem } from "@/features/chatbot/ai/faqEnricher";
+import type { FAQItem } from "@/features/chatbot/types";
 
-interface FAQItem {
-  question: string;
-  answer: string;
-  date: string;
-}
+const FAQ: React.FC = () => {
+  // 문서 연결 상태 (컴포넌트 내부로 이동!)
+  const [docId, setDocId] = useState<string | undefined>(undefined);
+  const [docList, setDocList] = useState<{ id: string; title: string }[]>([]);
 
-const FAQ = () => {
+  // 입력/목록 상태
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [faqList, setFaqList] = useState<FAQItem[]>([]);
 
+  // 기존 저장값 로드 + 마이그레이션
   useEffect(() => {
     const stored = localStorage.getItem("faqList");
     if (stored) {
-      setFaqList(JSON.parse(stored));
+      try {
+        const parsed = JSON.parse(stored) as any[];
+        const migrated: FAQItem[] = parsed.map((x) => ({
+          question: x.question ?? "",
+          answer: x.answer ?? "",
+          date: x.date,
+          docId: x.docId,         // 없으면 undefined
+          docAnchor: x.docAnchor, // 없으면 undefined
+        }));
+        setFaqList(migrated);
+        localStorage.setItem("faqList", JSON.stringify(migrated));
+      } catch {
+        // 구형 데이터면 조용히 패스
+      }
+    }
+  }, []);
+
+  // Docs에서 만든 문서 목록 로드 (드롭다운용)
+  useEffect(() => {
+    try {
+      const docs = JSON.parse(localStorage.getItem("docArticles:v1") || "[]");
+      setDocList(
+        (Array.isArray(docs) ? docs : []).map((d: any) => ({
+          id: d.id,
+          title: d.title || "(제목 없음)",
+        }))
+      );
+    } catch {
+      // pass
     }
   }, []);
 
   const handleSave = async () => {
-  if (!question.trim() || !answer.trim()) {
-    alert("질문과 답변을 모두 입력해주세요.");
-    return;
-  }
-  const enriched = await enrichFAQItem(question, answer);
+    if (!question.trim() || !answer.trim()) {
+      alert("질문과 답변을 모두 입력해주세요.");
+      return;
+    }
 
-  const updated = [enriched, ...faqList];
-  setFaqList(updated);
-  localStorage.setItem("faqList", JSON.stringify(updated));
+    const enriched = await enrichFAQItem(question, answer, { docId });
 
-  setQuestion("");
-  setAnswer("");
+    const updated = [enriched, ...faqList];
+    setFaqList(updated);
+    localStorage.setItem("faqList", JSON.stringify(updated));
+
+    setQuestion("");
+    setAnswer("");
+    setDocId(undefined);
   };
 
   return (
@@ -54,6 +86,21 @@ const FAQ = () => {
           onChange={(e) => setAnswer(e.target.value)}
           className="border p-2 rounded-lg h-24 resize-none"
         />
+        <select
+          value={docId ?? ""}
+          onChange={(e) => {
+            const v = (e.target as HTMLSelectElement).value;
+            setDocId(v || undefined);
+          }}
+          className="border p-2 rounded-lg"
+        >
+          <option value="">문서 연결 안 함</option>
+          {docList.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.title}
+            </option>
+          ))}
+        </select>
         <button
           onClick={handleSave}
           className="bg-green-500 text-white rounded-lg py-2 hover:bg-green-600 transition"
@@ -78,7 +125,14 @@ const FAQ = () => {
                 <p className="text-sm text-gray-700 whitespace-pre-line mt-1">
                   A. {faq.answer}
                 </p>
-                <p className="text-xs text-gray-400 mt-2">{faq.date}</p>
+                {faq.date && (
+                  <p className="text-xs text-gray-400 mt-2">{faq.date}</p>
+                )}
+                {faq.docId && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    연결 문서 ID: {faq.docId}
+                  </p>
+                )}
               </li>
             ))}
           </ul>

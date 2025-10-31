@@ -1,15 +1,40 @@
+// src/features/views/Docs.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 // LocalStorage keys
 const STORAGE_KEY = "docArticles:v1";
 const LAST_OPEN_KEY = "docArticles:lastOpenId";
 
-type Article = {
+export type Article = {
   id: string;
   title: string;
   content: string;
   updatedAt: number; // epoch ms
 };
+
+// 아래 DocIndex* 타입들은 로컬 편의를 위해 남겨두었지만
+// 실제 인덱싱/검색은 features/ai/docIndex / docSearch에서 수행한다.
+type DocChunk = {
+  id: string;           // `${articleId}#${n}`
+  articleId: string;
+  heading?: string;
+  text: string;         // 원문
+  text_en: string;      // 영어 정규화(번역/그대로)
+  keywords_en: string[]; // 추출 키워드
+  scoreHint?: number;   // 빌드 시 힌트(heading 가중치)
+};
+
+type DocIndexEntry = {
+  id: string;           // articleId
+  title: string;
+  title_en: string;
+  summary_en: string;   // 2~3문장 요약
+  keywords_en: string[];
+  chunks: DocChunk[];
+  updatedAt: number;
+};
+
+type DocIndex = DocIndexEntry[];
 
 function loadArticles(): Article[] {
   try {
@@ -35,7 +60,7 @@ const useReactMarkdown = () => {
     let mounted = true;
     // optional dynamic import; falls back gracefully if not installed
     import("react-markdown")
-      .then((m) => mounted && setMD(() => (m.default as any) ?? m as any))
+      .then((m) => mounted && setMD(() => (m.default as any) ?? (m as any)))
       .catch(() => mounted && setMD(null));
     return () => {
       mounted = false;
@@ -48,7 +73,9 @@ const Empty = ({ text }: { text: string }) => (
   <div style={{ padding: 24, color: "#666", fontSize: 14 }}>{text}</div>
 );
 
-const ToolbarButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
+const ToolbarButton: React.FC<
+  React.ButtonHTMLAttributes<HTMLButtonElement>
+> = (props) => (
   <button
     {...props}
     className={(props.className ?? "") + " docs-btn"}
@@ -85,7 +112,8 @@ const Textarea = (p: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
       padding: "12px",
       border: "1px solid #ddd",
       borderRadius: 8,
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+      fontFamily:
+        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
       fontSize: 14,
       lineHeight: 1.5,
       ...(p.style ?? {}),
@@ -100,11 +128,12 @@ const ListItem: React.FC<{
   onDelete: () => void;
 }> = ({ article, active, onClick, onDelete }) => {
   const date = new Date(article.updatedAt);
-  const stamp = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate()
-  ).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(
-    date.getMinutes()
-  ).padStart(2, "0")}`;
+  const stamp = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(date.getDate()).padStart(2, "0")} ${String(
+    date.getHours()
+  ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 
   return (
     <div
@@ -152,8 +181,13 @@ const Docs: React.FC = () => {
   const [list, setList] = useState<Article[]>(() =>
     loadArticles().sort((a, b) => b.updatedAt - a.updatedAt)
   );
-  const [activeId, setActiveId] = useState<string | null>(() => localStorage.getItem(LAST_OPEN_KEY));
-  const active = useMemo(() => list.find((x) => x.id === activeId) ?? null, [list, activeId]);
+  const [activeId, setActiveId] = useState<string | null>(() =>
+    localStorage.getItem(LAST_OPEN_KEY)
+  );
+  const active = useMemo(
+    () => list.find((x) => x.id === activeId) ?? null,
+    [list, activeId]
+  );
   const [title, setTitle] = useState(active?.title ?? "");
   const [content, setContent] = useState(active?.content ?? "");
   const [filter, setFilter] = useState("");
@@ -191,7 +225,8 @@ const Docs: React.FC = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, title, content, list]);
 
   const handleAdd = () => {
     const blank: Article = {
@@ -210,7 +245,12 @@ const Docs: React.FC = () => {
     const idx = list.findIndex((x) => x.id === activeId);
     if (idx < 0) return;
     const next = [...list];
-    next[idx] = { ...next[idx], title: title.trim(), content, updatedAt: Date.now() };
+    next[idx] = {
+      ...next[idx],
+      title: title.trim(),
+      content,
+      updatedAt: Date.now(),
+    };
     next.sort((a, b) => b.updatedAt - a.updatedAt);
     setList(next);
     dirtyRef.current = false;
@@ -220,6 +260,18 @@ const Docs: React.FC = () => {
     const next = list.filter((x) => x.id !== id);
     setList(next);
     if (activeId === id) setActiveId(next[0]?.id ?? null);
+  };
+
+  const handleRebuild = () => {
+    // 문서 인덱스(학습 데이터) 재컴파일 트리거
+    window.dispatchEvent(new CustomEvent("docIndex:rebuild"));
+    // 가벼운 피드백
+    try {
+      // eslint-disable-next-line no-alert
+      alert("학습 인덱스 업데이트를 요청했습니다.");
+    } catch {
+      // 경고 창이 막힌 환경이면 조용히 패스
+    }
   };
 
   const filtered = useMemo(() => {
@@ -233,13 +285,24 @@ const Docs: React.FC = () => {
   }, [list, filter]);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 16, height: "100%", padding: 12 }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "320px 1fr",
+        gap: 16,
+        height: "100%",
+        padding: 12,
+      }}
+    >
       {/* Left: list */}
       <div style={{ borderRight: "1px solid #eee", paddingRight: 12 }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
           <ToolbarButton onClick={handleAdd}>+ 새 아티클</ToolbarButton>
           <ToolbarButton onClick={handleSave} disabled={!activeId}>
             ⌘/Ctrl+S 저장
+          </ToolbarButton>
+          <ToolbarButton onClick={handleRebuild}>
+            학습 업데이트
           </ToolbarButton>
         </div>
         <Input
@@ -247,7 +310,15 @@ const Docs: React.FC = () => {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        <div style={{ display: "grid", gap: 8, marginTop: 12, maxHeight: "calc(100vh - 220px)", overflow: "auto" }}>
+        <div
+          style={{
+            display: "grid",
+            gap: 8,
+            marginTop: 12,
+            maxHeight: "calc(100vh - 220px)",
+            overflow: "auto",
+          }}
+        >
           {filtered.length ? (
             filtered.map((a) => (
               <ListItem
@@ -268,7 +339,15 @@ const Docs: React.FC = () => {
       <div style={{ paddingLeft: 4 }}>
         {active ? (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 8,
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
               <Input
                 placeholder="제목"
                 value={title}
@@ -282,7 +361,13 @@ const Docs: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
               <div>
                 <div style={{ fontWeight: 600, margin: "6px 0" }}>Markdown</div>
                 <Textarea
@@ -293,12 +378,26 @@ const Docs: React.FC = () => {
                   }}
                 />
               </div>
-              <div style={{ border: "1px solid #eee", borderRadius: 8, padding: 12, overflow: "auto", height: "calc(100vh - 220px)" }}>
+              <div
+                style={{
+                  border: "1px solid #eee",
+                  borderRadius: 8,
+                  padding: 12,
+                  overflow: "auto",
+                  height: "calc(100vh - 220px)",
+                }}
+              >
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>미리보기</div>
                 {MD ? (
                   <MD>{content || "_내용이 없습니다._"}</MD>
                 ) : (
-                  <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", color: "#444" }}>
+                  <pre
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      fontFamily: "inherit",
+                      color: "#444",
+                    }}
+                  >
                     react-markdown 미설치 상태. 텍스트로 표시합니다.
 
 {content || "(내용 없음)"}
@@ -316,3 +415,4 @@ const Docs: React.FC = () => {
 };
 
 export default Docs;
+

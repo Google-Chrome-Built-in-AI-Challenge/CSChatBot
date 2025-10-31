@@ -18,3 +18,12 @@ export type Persona = {
     endingParticle?: string;       // ★ 새로 추가: 문장 끝말(예: "용", "요")
   };
 };
+
+// src/features/chatbot/types.ts
+export type FAQItem = {
+  question: string;
+  answer: string;
+  date?: string;       // 있으면 유지
+  docId?: string;      // 연결 문서 id
+  docAnchor?: string;  // 선택: 특정 heading 앵커
+};
