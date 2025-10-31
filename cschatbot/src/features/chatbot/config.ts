@@ -3,9 +3,19 @@ import { createChatBotMessage } from 'react-chatbot-kit';
 import Header from './components/Header';
 import { WidgetButton, WidgetButtonProps, Avatar } from './';
 
+// 로컬스토리지에서 greeting 불러오기
+const storedProfile = localStorage.getItem('agentProfile');
+let greeting = "Hi! I'm your chatbot."; // 기본값
+if (storedProfile) {
+  try {
+    const parsed = JSON.parse(storedProfile);
+    if (parsed.greeting) greeting = parsed.greeting;
+  } catch {}
+}
+
 const config = {
   initialMessages: [
-    createChatBotMessage("Hi, Lovely Glowner! 💛💫 \n 당신의 빛을 찾아주는 GLOWNY 입니다. \n✧ ​CS 운영 시간 \nMON - FRI : 11:00AM - 4:00PM \n(LUNCH: 12:00PM - 1:10PM) \nWEEKEND, HOLIDAY OFF \n로그인 후 문의를 남겨주시면 더 빠른 답변 받아보실 수 있습니다!", {
+    createChatBotMessage(greeting, {
       delay: 500,
       widget: 'firstButtons',
     }),

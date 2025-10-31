@@ -11,7 +11,7 @@ const FAQ: React.FC = () => {
   const [answer, setAnswer] = useState("");
   const [faqList, setFaqList] = useState<FAQItem[]>([]);
 
-  // 기존 저장값 로드 + 마이그레이션
+  // Load existing stored FAQs + migration
   useEffect(() => {
     const stored = localStorage.getItem("faqList");
     if (stored) {
@@ -30,14 +30,14 @@ const FAQ: React.FC = () => {
     }
   }, []);
 
-  // Docs에서 만든 문서 목록 로드 (드롭다운용)
+  // Load documents from Docs (for dropdown)
   useEffect(() => {
     try {
       const docs = JSON.parse(localStorage.getItem("docArticles:v1") || "[]");
       setDocList(
         (Array.isArray(docs) ? docs : []).map((d: any) => ({
           id: d.id,
-          title: d.title || "(제목 없음)",
+          title: d.title || "(No Title)",
         }))
       );
     } catch {}
@@ -45,7 +45,7 @@ const FAQ: React.FC = () => {
 
   const handleSave = async () => {
     if (!question.trim() || !answer.trim()) {
-      alert("질문과 답변을 모두 입력해주세요.");
+      alert("Please enter both the question and the answer.");
       return;
     }
 
@@ -61,18 +61,18 @@ const FAQ: React.FC = () => {
 
   return (
     <div className="faq-card-grid">
-      {/* 좌측: 입력 영역 */}
+      {/* Left: Input area */}
       <div className="faq-input-area">
-        <h2>FAQ 작성</h2>
-        <p>자주 묻는 질문(FAQ)을 등록하세요.</p>
+        <h2>Create FAQ</h2>
+        <p>Register frequently asked questions (FAQ).</p>
         <input
           type="text"
-          placeholder="대표 질문을 입력하세요"
+          placeholder="Enter the main question"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
         />
         <textarea
-          placeholder="해당 질문의 답변을 입력하세요"
+          placeholder="Enter the answer to the question"
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
         />
@@ -84,7 +84,7 @@ const FAQ: React.FC = () => {
             setDocId(v || undefined);
           }}
         >
-          <option value="">문서 연결 안 함</option>
+          <option value="">No document linked</option>
           {docList.map((d) => (
             <option key={d.id} value={d.id}>
               {d.title}
@@ -92,17 +92,17 @@ const FAQ: React.FC = () => {
           ))}
         </select>
 
-        {/* 버튼: 옛날 디자인 적용 */}
+        {/* Button: old design */}
         <div className="button-wrapper">
-          <button onClick={handleSave}>FAQ 등록</button>
+          <button onClick={handleSave}>Add FAQ</button>
         </div>
       </div>
 
-      {/* 우측: FAQ 리스트 */}
+      {/* Right: FAQ list */}
       <div className="faq-list-wrapper">
-        <h2>등록된 FAQ</h2>
+        <h2>Registered FAQs</h2>
         {faqList.length === 0 ? (
-          <p className="no-items">등록된 FAQ가 없습니다.</p>
+          <p className="no-items">No FAQs registered yet.</p>
         ) : (
           <ul className="faq-list">
             {faqList.map((faq, idx) => (
@@ -110,7 +110,7 @@ const FAQ: React.FC = () => {
                 <h4>Q. {faq.question}</h4>
                 <p>A. {faq.answer}</p>
                 {faq.date && <p className="date">{faq.date}</p>}
-                {faq.docId && <p className="date">연결 문서 ID: {faq.docId}</p>}
+                {faq.docId && <p className="date">Linked Document ID: {faq.docId}</p>}
               </li>
             ))}
           </ul>

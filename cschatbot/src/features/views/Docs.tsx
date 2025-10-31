@@ -8,6 +8,7 @@ import './Docs.css';
 const STORAGE_KEY = "docArticles:v1";
 const LAST_OPEN_KEY = "docArticles:lastOpenId";
 
+// Article type definition
 export type Article = {
   id: string;
   title: string;
@@ -15,9 +16,11 @@ export type Article = {
   updatedAt: number;
 };
 
+// Generate unique ID
 const uid = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
+// Load articles from localStorage
 function loadArticles(): Article[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -29,11 +32,12 @@ function loadArticles(): Article[] {
   }
 }
 
+// Save articles to localStorage
 function saveArticles(list: Article[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
-// Markdown 동적 import
+// Dynamic import for React Markdown
 const useReactMarkdown = () => {
   const [MD, setMD] = useState<null | React.ComponentType<any>>(null);
   useEffect(() => {
@@ -75,14 +79,15 @@ const ListItem: React.FC<{
   return (
     <div className={`docs-list-item ${active ? "active" : ""}`} onClick={onClick}>
       <div>
-        <div className="docs-list-title">{article.title || "(제목 없음)"}</div>
+        <div className="docs-list-title">{article.title || "(Untitled)"}</div>
         <div className="docs-list-date">{stamp}</div>
       </div>
-      <button onClick={(e) => { e.stopPropagation(); onDelete(); }}>삭제</button>
+      <button onClick={(e) => { e.stopPropagation(); onDelete(); }}>Delete</button>
     </div>
   );
 };
 
+// Main Docs component
 const Docs: React.FC = () => {
   const [list, setList] = useState<Article[]>(() =>
     loadArticles().sort((a, b) => b.updatedAt - a.updatedAt)
@@ -112,17 +117,19 @@ const Docs: React.FC = () => {
     saveArticles(list);
   }, [list]);
 
+  // Add a new blank article
   const handleAdd = () => {
     const blank: Article = {
       id: uid(),
-      title: "새 아티클",
-      content: "# 새 아티클\n여기에 내용을 작성하세요.",
+      title: "New Article",
+      content: "# New Article\nWrite your content here.",
       updatedAt: Date.now(),
     };
     setList([blank, ...list].sort((a, b) => b.updatedAt - a.updatedAt));
     setActiveId(blank.id);
   };
 
+  // Save current article
   const handleSave = () => {
     if (!activeId) return;
     const idx = list.findIndex((x) => x.id === activeId);
@@ -133,16 +140,18 @@ const Docs: React.FC = () => {
     dirtyRef.current = false;
   };
 
+  // Delete an article
   const handleDelete = (id: string) => {
     const next = list.filter((x) => x.id !== id);
     setList(next);
     if (activeId === id) setActiveId(next[0]?.id ?? null);
   };
 
+  // Rebuild AI index
   const handleRebuild = async () => {
     try {
       const ai = await bootstrapLocalAI(() => {}, { companyId: 'mari' });
-      if (!ai.agentLang) (ai as any).agentLang = 'ko';
+      if (!ai.agentLang) (ai as any).agentLang = 'en';
 
       const stripMd = (s: string) =>
         (s || '')
@@ -168,10 +177,10 @@ const Docs: React.FC = () => {
       const docs = JSON.parse(localStorage.getItem('docDocs:v1') || '[]');
       const idx  = JSON.parse(localStorage.getItem('docIndex:v1') || '{}');
       console.log('[docIndex] docs:', docs.length, 'vocab terms:', Object.keys(idx.vocab || {}).length);
-      alert(`학습 완료: 문서 ${docs.length}개`);
+      alert(`Training complete: ${docs.length} documents`);
     } catch (e) {
       console.error('[Docs] rebuild failed', e);
-      alert('학습 실패: 콘솔 로그 확인');
+      alert('Training failed: check console logs');
     }
   };
 
@@ -187,15 +196,16 @@ const Docs: React.FC = () => {
 
   return (
     <div className="docs-card">
-      {/* 좌측 리스트 */}
+      {/* Left: Article list */}
       <div>
+        <h2>Document Management</h2>
         <div className="docs-toolbar">
-          <ToolbarButton onClick={handleAdd}>+ 새 아티클</ToolbarButton>
-          <ToolbarButton onClick={handleSave} disabled={!activeId}>저장</ToolbarButton>
-          <ToolbarButton onClick={handleRebuild}>학습 업데이트</ToolbarButton>
+          <ToolbarButton onClick={handleAdd}>+ New Article</ToolbarButton>
+          <ToolbarButton onClick={handleSave} disabled={!activeId}>Save</ToolbarButton>
+          <ToolbarButton onClick={handleRebuild}>Update Training</ToolbarButton>
         </div>
 
-        <Input placeholder="검색 (제목/본문)" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <Input placeholder="Search (title/content)" value={filter} onChange={(e) => setFilter(e.target.value)} />
 
         <div className="docs-list-items">
           {filtered.length ? (
@@ -209,19 +219,19 @@ const Docs: React.FC = () => {
               />
             ))
           ) : (
-            <Empty text="아티클이 없습니다. 오른쪽 위 ‘+ 새 아티클’을 누르세요." />
+            <Empty text="No articles found. Click '+ New Article' above." />
           )}
         </div>
       </div>
 
-      {/* 우측 에디터 */}
+      {/* Right: Editor */}
       <div className="docs-editor">
         {active ? (
           <>
             <div className="docs-editor-header">
-              <Input placeholder="제목" value={title} onChange={(e) => { setTitle(e.target.value); dirtyRef.current = true; }} />
+              <Input placeholder="Title" value={title} onChange={(e) => { setTitle(e.target.value); dirtyRef.current = true; }} />
               <div className="docs-status">
-                <ToolbarButton onClick={handleSave} disabled={!activeId}>저장</ToolbarButton>
+                <ToolbarButton onClick={handleSave} disabled={!activeId}>Save</ToolbarButton>
               </div>
             </div>
 
@@ -231,12 +241,12 @@ const Docs: React.FC = () => {
                 <Textarea value={content} onChange={(e) => { setContent(e.target.value); dirtyRef.current = true; }} />
               </div>
               <div className="docs-preview">
-                {MD ? <MD>{content || "_내용이 없습니다._"}</MD> : <pre style={{whiteSpace: "pre-wrap"}}>{content || "(내용 없음)"}</pre>}
+                {MD ? <MD>{content || "_No content available._"}</MD> : <pre style={{whiteSpace: "pre-wrap"}}>{content || "(No content)"}</pre>}
               </div>
             </div>
           </>
         ) : (
-          <Empty text="왼쪽에서 아티클을 선택하거나 새로 만드세요." />
+          <Empty text="Select or create an article from the left." />
         )}
       </div>
     </div>

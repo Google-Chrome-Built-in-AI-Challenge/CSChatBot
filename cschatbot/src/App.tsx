@@ -40,23 +40,23 @@ function App() {
 
           <div className={`dashboard-area ${showDashboard ? 'show' : ''}`}>
             <div className="dashboard-content" style={{ display: 'flex', gap: '2rem' }}>
-              {/* 왼쪽: 설정 버튼들 */}
+              {/* Left: Settings buttons */}
               <div className="settings-list" style={{ minWidth: '200px' }}>
                 <div className="setting-item" onClick={() => setActiveView("agent")}>
-                  에이전트 프로필 설정하기
+                  Configure Agent Profile
                 </div>
                 {/* <div className="setting-item" onClick={() => setActiveView("glossary")}>
-                  용어사전 설정하기
+                  Configure Glossary
                 </div> */}
                 <div className="setting-item" onClick={() => setActiveView("faq")}>
-                  FAQ 설정하기
+                  Configure FAQ
                 </div>
                 <div className="setting-item" onClick={() => setActiveView("docs")}>
-                  도큐먼트/아티클 설정하기
+                  Configure Documents/Articles
                 </div>
               </div>
 
-              {/* 오른쪽: 선택된 뷰 */}
+              {/* Right: Selected view */}
               <div className="view-area" style={{ flex: 1 }}>
                 {activeView === "agent" && <AgentProfile />}
                 {activeView === "glossary" && <Glossary />}
@@ -65,7 +65,7 @@ function App() {
               </div>
             </div>
 
-            {/* FAQ 버튼 / 챗봇 */}
+            {/* FAQ button / Chatbot */}
             {!showChatbot ? (
               <Button
                 onClick={() => setShowChatbot(true)}

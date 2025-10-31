@@ -2,9 +2,14 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import { compilePersonaFromText } from '@/features/chatbot/ai/personaCompiler';
 import { savePersonaToLocalStorage, getPersonaFromLocalStorage } from '@/features/chatbot/ai/personaLoader';
-import './AgentProfile.css'; // 👈 추가
+import './AgentProfile.css'; // 👈 기존 CSS 유지
 
-type StoredProfile = { name: string; role: string; profileImage: string | null };
+type StoredProfile = { 
+  name: string; 
+  role: string; 
+  profileImage: string | null;
+  greeting: string; // 👈 첫 인사말 추가
+};
 
 const PROFILE_LS = 'agentProfile';
 
@@ -12,6 +17,7 @@ const AgentProfile = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
+  const [greeting, setGreeting] = useState(''); // 👈 첫 인사말 상태
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
@@ -22,12 +28,15 @@ const AgentProfile = () => {
         setName(p.name || '');
         setRole(p.role || '');
         setProfileImage(p.profileImage ?? null);
+        setGreeting(p.greeting || ''); // 👈 로드
       }
     } catch {}
+
     const persona = getPersonaFromLocalStorage();
     if (persona) {
       setName(persona.displayName || '');
       setRole(persona.role || '');
+      if (persona.greeting) setGreeting(persona.greeting); // 👈 persona greeting
     }
   }, []);
 
@@ -40,10 +49,10 @@ const AgentProfile = () => {
   };
 
   const handleSave = () => {
-    const agentData: StoredProfile = { name, role, profileImage };
+    const agentData: StoredProfile = { name, role, profileImage, greeting };
     localStorage.setItem(PROFILE_LS, JSON.stringify(agentData));
 
-    const persona = compilePersonaFromText(name, role);
+    const persona = compilePersonaFromText(name, role, greeting); // 👈 greeting 포함
     savePersonaToLocalStorage(persona);
 
     setIsSaved(true);
@@ -56,11 +65,12 @@ const AgentProfile = () => {
     setName('');
     setRole('');
     setProfileImage(null);
+    setGreeting(''); // 👈 초기화
   };
 
   return (
     <div className="agent-card">
-      <h2>에이전트 프로필 설정</h2>
+      <h2>Agent Profile Settings</h2>
 
       <div className="image-upload">
         <label className="image-wrapper">
@@ -74,30 +84,39 @@ const AgentProfile = () => {
       </div>
 
       <div className="form-group">
-        <label>이름</label>
+        <label>Name</label>
         <input
           type="text"
-          placeholder="에이전트 이름을 입력하세요"
+          placeholder="Enter agent name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
       </div>
 
       <div className="form-group">
-        <label>역할 설명</label>
+        <label>Role Description</label>
         <textarea
-          placeholder="에이전트의 역할을 자연어로 설명하세요"
+          placeholder="Describe the agent's role in natural language"
           value={role}
           onChange={(e) => setRole(e.target.value)}
         />
       </div>
 
-      <div className="button-group">
-        <button className="save-button" onClick={handleSave}>저장하기</button>
-        <button className="reset-button" onClick={handleReset}>초기화</button>
+      <div className="form-group">
+        <label>Chatbot Greeting</label> {/* 👈 새 필드 */}
+        <textarea
+          placeholder="Enter chatbot's first greeting message"
+          value={greeting}
+          onChange={(e) => setGreeting(e.target.value)}
+        />
       </div>
 
-      {isSaved && <p className="save-message"> 변경사항이 저장되었습니다.</p>}
+      <div className="button-group">
+        <button className="save-button" onClick={handleSave}>Save</button>
+        <button className="reset-button" onClick={handleReset}>Reset</button>
+      </div>
+
+      {isSaved && <p className="save-message">Changes have been saved.</p>}
     </div>
   );
 };

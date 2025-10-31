@@ -48,6 +48,21 @@
   outline: none;
 }
 
+.faq-input-area select {
+  background-color: #fff;
+  border: 1px solid #aaa;
+  cursor: pointer;
+  transition: border 0.2s;
+  height: 40px;
+  padding: 0.5rem;
+  border-radius: 5px;
+}
+
+.faq-input-area select:focus {
+  outline: none;
+  border-color: 1px solid #816262;
+}
+
 .input-area button {
   width: fit-content;
   background-color: #6d8fc6;

@@ -119,6 +119,7 @@
   flex-direction: column;
   gap: 12px;
   padding-left: 8px;
+  padding-top: 20.5%;
 }
 
 .docs-editor-header {
