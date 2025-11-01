@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { bootstrapLocalAI } from '@/features/chatbot/ai/bootstrap';
 import { compileIndex } from '@/features/chatbot/ai/docIndex';
-import './Docs.css';
+import './Docs';
 
 // LocalStorage keys
 const STORAGE_KEY = "docArticles:v1";

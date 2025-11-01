@@ -1,5 +1,6 @@
 // src/features/chatbot/ai/types.ts
 export type Persona = {
+  greeting: any;
   companyId: string;
   displayName: string;
   agentName?: string;

@@ -92,7 +92,7 @@ export async function enrichFAQItem(
     question: rawQ.trim(),
     answer: rawA.trim(), // 원문 그대로
     date: new Date().toLocaleString(),
-    lang: lang ?? "en",
+    lang,
     norm: { enQ, koQ },
     docId: extra?.docId,
     docAnchor: extra?.docAnchor,

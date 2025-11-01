@@ -54,6 +54,6 @@ export function compilePersonaFromText(
       useHonorific: mustUseHonorific,
       endingParticle: endTone || undefined,
     },
-    greeting: greeting || undefined, // 필요하다면 이렇게만 추가!
+    greeting: greeting || undefined, 
   };
 }
