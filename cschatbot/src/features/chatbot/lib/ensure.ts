@@ -1,3 +1,5 @@
+import { UnsupportedFeatureError } from "./aiErrors";
+
 export type Avail = 'available'|'downloadable'|'unavailable';
 
 export function requireFeature(name: string) {

@@ -1,4 +1,3 @@
-import persona from '../data/personas/acme.json';
 import glossary from '../data/glossary/acme.json';
 import faq from '../data/faq/acme.json';
 
@@ -11,7 +10,7 @@ import type { Persona } from './types';
 
 const WRITER_ON = false; // ★ 우선 끄고 시작. 느리면 바로 범인임.
 
-export async function bootstrapLocalAI(onProgress?, opts?: { companyId?: string; personaOverride?: Persona }) {
+export async function bootstrapLocalAI(onProgress?: { (kind: any, r: any): void; (): void; (): void; (arg0: string, arg1: number): void; }, opts?: { companyId?: string; personaOverride?: Persona }) {
   const persona = opts?.personaOverride ?? await loadPersona(opts?.companyId ?? 'mari');
   const agentLang = persona.agentLang ?? 'en';
 

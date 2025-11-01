@@ -23,10 +23,14 @@ export async function loadPersona(companyId: string): Promise<Persona> {
   // 2) 메모리 캐시
   if (cache.has(companyId)) return cache.get(companyId)!;
 
+  
   // 3) 빌드 타임 하드코딩 매핑
+  const newLocal = '../data/personas/mari.json';
+  const newLocal_1 = '../data/personas/acme.json';
+  
   const map: Record<string, () => Promise<Persona>> = {
-    mari: () => import('../data/personas/mari.json').then(m => m.default),
-    acme: () => import('../data/personas/acme.json').then(m => m.default),
+    mari: () => import(newLocal).then(m => m.default),
+    acme: () => import(newLocal_1).then(m => m.default),
   };
 
   const loader = map[companyId] ?? map['mari'];

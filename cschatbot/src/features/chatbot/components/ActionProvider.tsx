@@ -7,7 +7,6 @@ import { prefilterFAQ } from '../ai/faqPrefilter';
 import { matchFAQFromShortlist, getFAQ as getFAQByIndex } from '../ai/faqMatcher';
 
 type CreateMsgFn = (message: string, options?: Record<string, unknown>) => any;
-type Article = { id: string; title: string; body?: string; content?: string; lang?: string };
 
 interface ActionProviderProps {
   createChatBotMessage: CreateMsgFn;
@@ -27,6 +26,16 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
 }) => {
   const nav = useNavigate();
   const aiRef = useRef<AIBundle | null>(null);
+   function onProgress(kind: any, r: any): void;
+  function onProgress(): void;
+  function onProgress(arg0?: string, arg1?: number): void {
+    if (typeof arg0 === 'string' && typeof arg1 === 'number') {
+      console.log(
+        `[ActionProvider] download ${arg0}: ${Math.round(arg1 * 100)}%`
+      );
+    }
+    // 인자 없는 오버로드는 무시
+  }
 
   const appendBot = (text: string, options?: Record<string, unknown>) => {
     const botMessage = createChatBotMessage(text, options);
@@ -48,10 +57,7 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
 
   const ensureAI = async (): Promise<AIBundle> => {
     if (aiRef.current) return aiRef.current;
-    aiRef.current = await bootstrapLocalAI(
-      (kind, r) => console.log(`[ActionProvider] download ${kind}: ${Math.round(r * 100)}%`),
-      { companyId: 'mari' }
-    );
+    aiRef.current = await bootstrapLocalAI(onProgress, { companyId: 'mari' });
     // 페르소나가 지정한 언어가 없으면 ko로 강제
     if (!aiRef.current.agentLang) (aiRef.current as any).agentLang = 'ko';
     return aiRef.current!;
@@ -107,10 +113,10 @@ useEffect(() => {
   const handleUserText = async (raw: string) => {
     try {
       const ai = await ensureAI();
-      const agentLang = ai.agentLang ?? 'en';
+      const agentLang: string = ai.agentLang ?? 'en';
 
       // 0) 언어 감지 with CJK 가드
-      let srcLang = agentLang;
+      let srcLang: string = agentLang;
       try {
         const clean = stripForLangDetect(raw);
         let top: any = null;
@@ -128,6 +134,7 @@ useEffect(() => {
         };
 
         const scriptHint = hintByScript(raw); // ko|ja|zh|...
+        const hint = String(scriptHint || '');
         const detLang = top?.detectedLanguage || agentLang;
         const conf = top?.confidence ?? 0;
 
@@ -136,8 +143,8 @@ useEffect(() => {
 
         if (koStrong) {
           srcLang = 'ko';
-        } else if (scriptHint && scriptHint !== 'und') {
-          srcLang = conf >= 0.85 ? detLang : scriptHint;
+        } else if (hint && hint !== 'und') {
+          srcLang = conf >= 0.85 ? detLang : hint;
         } else {
           srcLang = conf >= 0.75 ? detLang : agentLang;
         }
@@ -313,8 +320,7 @@ try {
     const titleKo   = clean(hit.title || '');
 
     // 1) 질의 언어로 직접 생성 (한국어면 한국어)
-    const wantLang = srcLang;        // 질의 언어
-    const agentLangNow = ai.agentLang ?? 'en';
+    const wantLang: string = srcLang;
 
     // 필요하면 스니펫/질의를 wantLang로 번역
     let ctx = koSnippet;
@@ -450,7 +456,7 @@ try {
     <div>
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
-          return React.cloneElement(child as ReactElement, {
+          return React.cloneElement(child as ReactElement<any>, {
             actions: {
               handleTicketPurchase,
               handleUnknownMessage,
@@ -458,7 +464,7 @@ try {
               handleClickTicketLink,
               handleUserText,
             },
-          });
+          } as any);
         }
         return child;
       })}

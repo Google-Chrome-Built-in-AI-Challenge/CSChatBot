@@ -1,8 +1,8 @@
 // src/features/views/FAQ.tsx
 import React, { useState, useEffect } from "react";
 import { enrichFAQItem } from "@/features/chatbot/ai/faqEnricher";
-import type { FAQItem } from "@/features/chatbot/types";
-import './FAQ.css'; // 기존 CSS 적용
+import type { FAQItem } from "@/features/chatbot/ai/types";
+import './FAQ.css';
 
 const FAQ: React.FC = () => {
   const [docId, setDocId] = useState<string | undefined>(undefined);
@@ -23,6 +23,7 @@ const FAQ: React.FC = () => {
           date: x.date,
           docId: x.docId,
           docAnchor: x.docAnchor,
+          tags: [],
         }));
         setFaqList(migrated);
         localStorage.setItem("faqList", JSON.stringify(migrated));

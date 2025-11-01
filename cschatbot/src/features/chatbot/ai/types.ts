@@ -1,5 +1,6 @@
 // src/features/chatbot/ai/types.ts
 export type Persona = {
+  greeting: any;
   companyId: string;
   displayName: string;
   agentName?: string;
@@ -23,7 +24,14 @@ export type Persona = {
 export type FAQItem = {
   question: string;
   answer: string;
-  date?: string;       // 있으면 유지
+  date?: string; 
+  id?: string;      // 있으면 유지
   docId?: string;      // 연결 문서 id
   docAnchor?: string;  // 선택: 특정 heading 앵커
+  lang?: string;
+  norm?: {
+    enQ?: string;
+    koQ?: string;
+  };
+  tags:string[];
 };

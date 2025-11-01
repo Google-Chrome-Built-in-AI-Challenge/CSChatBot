@@ -1,8 +1,8 @@
 // src/pages/AgentProfile.tsx
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import { compilePersonaFromText } from '@/features/chatbot/ai/personaCompiler';
 import { savePersonaToLocalStorage, getPersonaFromLocalStorage } from '@/features/chatbot/ai/personaLoader';
-import './AgentProfile.css'; // 👈 기존 CSS 유지
+import './AgentProfile.css'; 
 
 type StoredProfile = { 
   name: string; 
@@ -17,7 +17,7 @@ const AgentProfile = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
-  const [greeting, setGreeting] = useState(''); // 👈 첫 인사말 상태
+  const [greeting, setGreeting] = useState('');
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ const AgentProfile = () => {
     const agentData: StoredProfile = { name, role, profileImage, greeting };
     localStorage.setItem(PROFILE_LS, JSON.stringify(agentData));
 
-    const persona = compilePersonaFromText(name, role, greeting); // 👈 greeting 포함
+    const persona = compilePersonaFromText(name, role, greeting);
     savePersonaToLocalStorage(persona);
 
     setIsSaved(true);

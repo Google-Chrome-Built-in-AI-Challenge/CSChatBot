@@ -11,7 +11,7 @@ interface Actions {
 }
 
 interface MessageParserProps {
-  children: React.ReactNode;
+  children: ReactElement<any> | ReactElement<any>[]; // 안전하게 ReactElement로 제한
   actions: Actions;
 }
 
@@ -40,15 +40,11 @@ const MessageParser: React.FC<MessageParserProps> = ({ children, actions }) => {
 
   return (
     <div>
-      {React.Children.map(children, (child) => {
-        if (React.isValidElement(child)) {
-          return React.cloneElement(child as ReactElement, {
-            parse,
-            actions,
-          });
-        }
-        return child;
-      })}
+      {React.Children.map(children, (child) =>
+        React.isValidElement<any>(child)
+          ? React.cloneElement(child, { parse, actions })
+          : child
+      )}
     </div>
   );
 };
