@@ -76,6 +76,15 @@ CSChatBot solves these issues by adopting **client-side inference using Gemini N
 
 Try CSChatBot online: [CSChatBot Demo](https://google-chrome-built-in-ai-challenge.github.io/CSChatBot/)
 
+
+https://github.com/user-attachments/assets/f8e43618-35d1-4511-a1d2-61f170218283
+
+
+[Youtube](https://youtu.be/a145er5vYRw)
+
+
+
+
 **FAQ Mode:**
 - User: "I want a refund"  
 - Chatbot: Returns pre-registered FAQ answer, even for varied phrasings.
