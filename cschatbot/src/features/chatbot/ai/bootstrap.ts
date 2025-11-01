@@ -1,4 +1,3 @@
-import persona from '../data/personas/acme.json';
 import glossary from '../data/glossary/acme.json';
 import faq from '../data/faq/acme.json';
 

@@ -23,6 +23,7 @@ const FAQ: React.FC = () => {
           date: x.date,
           docId: x.docId,
           docAnchor: x.docAnchor,
+          tags: [],
         }));
         setFaqList(migrated);
         localStorage.setItem("faqList", JSON.stringify(migrated));
