@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { enrichFAQItem } from "@/features/chatbot/ai/faqEnricher";
 import type { FAQItem } from "@/features/chatbot/ai/types";
-import './FAQ';
+import './FAQ.css';
 
 const FAQ: React.FC = () => {
   const [docId, setDocId] = useState<string | undefined>(undefined);

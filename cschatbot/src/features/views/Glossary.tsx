@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import './Glossary';
+import './Glossary.css';
 
 interface GlossaryItem {
   term: string;

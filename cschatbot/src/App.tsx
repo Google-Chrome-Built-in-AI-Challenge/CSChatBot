@@ -1,6 +1,6 @@
 // src/App.tsx
 import { useEffect, useRef, useState } from 'react';
-import './App';
+import './App.css';
 import config from './features/chatbot/config';
 import { Button } from './components/ui/button/button';
 import Chatbot from 'react-chatbot-kit';

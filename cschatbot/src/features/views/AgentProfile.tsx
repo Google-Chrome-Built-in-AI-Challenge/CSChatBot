@@ -2,7 +2,7 @@
 import { useState, useEffect, ChangeEvent } from 'react';
 import { compilePersonaFromText } from '@/features/chatbot/ai/personaCompiler';
 import { savePersonaToLocalStorage, getPersonaFromLocalStorage } from '@/features/chatbot/ai/personaLoader';
-import './AgentProfile'; 
+import './AgentProfile.css'; 
 
 type StoredProfile = { 
   name: string; 
